@@ -253,7 +253,7 @@
     }
 
     appendBlock(`<div class="t-cmd"><span class="t-p">❯</span> ${escapeHtml(cmd)}</div>`);
-    const rawKey = cmd.toLowerCase();
+    const rawKey = cmd.replace(/\s+/g, ' ').toLowerCase();
     const key = CMD_ALIASES[rawKey] || rawKey;
     if (COMMANDS[key]) {
       appendBlock(COMMANDS[key]());
@@ -283,8 +283,8 @@
       histIdx = Math.min(cmdHistory.length, histIdx + 1);
       termInput.value = cmdHistory[histIdx] || '';
     } else if (e.key === 'Tab') {
-      const val = termInput.value.trim().toLowerCase();
-      if (!val) return;
+      const val = termInput.value.trimStart().toLowerCase();
+      if (!val.trim()) return;
       if (tabState.matches.length && tabState.matches[tabState.idx] === val) {
         e.preventDefault();
         tabState.idx = (tabState.idx + 1) % tabState.matches.length;
@@ -688,8 +688,11 @@
 
   document.querySelectorAll('.filter-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.filter-btn').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
+      document.querySelectorAll('.filter-btn').forEach((b) => {
+        const on = b === btn;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', String(on));
+      });
       activeDomain = btn.dataset.domain;
       const matching = ROOFLINE_POINTS.filter((p) => activeDomain === 'all' || p.domain === activeDomain);
       if (matching.length && !matching.some((p) => p.id === selectedId)) {
@@ -720,13 +723,13 @@
           kpiVal: '-50.9% Launches',
           kpiSub: '814→400 · 15.28ms',
           rows: [[
-            { id: 't_norm1', label: '.cu RMSNorm', flex: 12, tone: 'em', stream: 'compute_stream (c10::Dispatcher)', title: 'Native .cu FusedAddRMSNorm (Single-Pass uint4)', metric: '311.0 GB/s · 13.8 μs (M=1)', delta: '0 Python dispatch tax · 99.5% D2D roof', desc: 'Registered directly via TORCH_LIBRARY_IMPL(ai_infra, CUDA, m) with 80× ld.v4.u32 and 140× shfl.sync.bfly register reductions.', link: 'https://github.com/yuri-infra/fused-cuda-triton-inductor/blob/main/csrc/fused_add_rmsnorm_cuda.cu' },
-            { id: 't_qkv', label: 'cuBLAS QKV', flex: 11, tone: 'cy', stream: 'compute_stream (Tensor Core)', title: 'Ragged BF16 QKV Linear Projection', metric: '24L Qwen2.5-0.5B (14Q/2KV)', delta: 'Zero .flatten() copy overhead', desc: 'Packed ragged tokens flow straight into cuBLAS Tensor Core GEMM without padding waste or intermediate KV copies.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/llm_serving/model_runner.py' },
+            { id: 't_norm1', label: '.cu RMSNorm', flex: 13, tone: 'em', stream: 'compute_stream (c10::Dispatcher)', title: 'Native .cu FusedAddRMSNorm (Single-Pass uint4)', metric: '311.0 GB/s · 13.8 μs (M=1)', delta: '0 Python dispatch tax · 99.5% D2D roof', desc: 'Registered directly via TORCH_LIBRARY_IMPL(ai_infra, CUDA, m) with 80× ld.v4.u32 and 140× shfl.sync.bfly register reductions.', link: 'https://github.com/yuri-infra/fused-cuda-triton-inductor/blob/main/csrc/fused_add_rmsnorm_cuda.cu' },
+            { id: 't_qkv', label: 'cuBLAS QKV', flex: 12, tone: 'cy', stream: 'compute_stream (Tensor Core)', title: 'Ragged BF16 QKV Linear Projection', metric: '24L Qwen2.5-0.5B (14Q/2KV)', delta: 'Zero .flatten() copy overhead', desc: 'Packed ragged tokens flow straight into cuBLAS Tensor Core GEMM without padding waste or intermediate KV copies.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/llm_serving/model_runner.py' },
             { id: 't_rope', label: 'GQA RoPE', flex: 10, tone: 'em', stream: 'compute_stream (Triton JIT)', title: 'Dual-Grid Fused GQA Q+K RoPE', metric: '11.6 μs (Single Launch)', delta: '1.40× compile · 11.97× Eager', desc: 'Merges sibling Q and K rotary embeddings into one heterogeneous-head Triton launch, halving launch latency on M=1 decode.', link: 'https://github.com/yuri-infra/fused-cuda-triton-inductor/blob/main/ai_infra_fused_ops/kernels.py' },
             { id: 't_paged', label: 'PagedAttn', flex: 11, tone: 'cy', stream: 'compute_stream (Triton TC)', title: '7:1 GQA Tensor Core Triton PagedAttention', metric: '65.4 μs · 0.22 MB temp', delta: '1.76× vs .flatten()+SDPA', desc: 'Packs 7 Q-heads into BLOCK_G=16 for hardware Tensor Core tl.dot, reading each 16-token KV page once per group.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/llm_serving/paged_attention.py' },
-            { id: 't_swiglu', label: 'Triton SwiGLU', flex: 14, tone: 'em', stream: 'compute_stream (Cross-Repo)', title: 'Cross-Repo Fused Triton SwiGLU', metric: '400 ops / step total', delta: '-414 launches (-50.9%)', desc: 'Cross-repo mount of Repo 01 .cu RMSNorm + Triton SwiGLU inside Repo 02 serving engine compacts 814 launches down to 400.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/llm_serving/model_runner.py' },
-            { id: 't_down', label: 'cuBLAS Down', flex: 12, tone: 'cy', stream: 'compute_stream (Tensor Core)', title: 'FFN Down Projection + Residual', metric: '15.28 ms Hit TTFT', delta: '-23.0% vs Eager norm (19.85ms)', desc: 'Completes the fused transformer layer with minimal inter-kernel gaps across all 24 Qwen2.5 layers.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/benchmarks/local_serving_benchmark_report.md' },
-            { id: 't_saved', label: '-23.0% TTFT SAVED', flex: 20, tone: 'em', dashed: true, stream: 'Headroom Reclaimed', title: '4.57 ms Reclaimed on 1056-Tok Hit TTFT', metric: '19.85 ms → 15.28 ms', delta: '-72.0% (3.57×) vs 54.62ms SDPA', desc: 'Host-side launch tax removal turns 414 eliminated micro-kernels directly into lower end-to-end time-to-first-token.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/benchmarks/local_serving_benchmark_report.md' },
+            { id: 't_swiglu', label: 'Triton SwiGLU', flex: 15, tone: 'em', stream: 'compute_stream (Cross-Repo)', title: 'Cross-Repo Fused Triton SwiGLU', metric: '400 ops / step total', delta: '-414 launches (-50.9%)', desc: 'Cross-repo mount of Repo 01 .cu RMSNorm + Triton SwiGLU inside Repo 02 serving engine compacts 814 launches down to 400.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/llm_serving/model_runner.py' },
+            { id: 't_down', label: 'cuBLAS Down', flex: 13, tone: 'cy', stream: 'compute_stream (Tensor Core)', title: 'FFN Down Projection + Residual', metric: '15.28 ms Hit TTFT', delta: '-23.0% vs Eager norm (19.85ms)', desc: 'Completes the fused transformer layer with minimal inter-kernel gaps across all 24 Qwen2.5 layers.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/benchmarks/local_serving_benchmark_report.md' },
+            { id: 't_saved', label: '-23.0% TTFT SAVED', flex: 21, tone: 'em', dashed: true, stream: 'Headroom Reclaimed', title: '4.57 ms Reclaimed on 1056-Tok Hit TTFT', metric: '19.85 ms → 15.28 ms', delta: '-72.0% (3.57×) vs 54.62ms SDPA', desc: 'Host-side launch tax removal turns 414 eliminated micro-kernels directly into lower end-to-end time-to-first-token.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/benchmarks/local_serving_benchmark_report.md' },
           ]],
         },
         {
@@ -787,9 +790,9 @@
           kpiVal: '814 Launches',
           kpiSub: '19.85ms (+4.57ms tax)',
           rows: [[
-            { id: 'b_eag1', label: 'cast · mul · mean · rsqrt · add (×48)', flex: 38, tone: 'rd', stream: 'compute_stream (Unfused Eager)', title: 'Fragmented PyTorch Eager RMSNorm Ops', metric: '814 CUDA launches / step', delta: '+414 redundant micro-kernels', desc: 'Without .cu FusedAddRMSNorm, each norm triggers multiple memory-bound elementwise & reduction launches with Python dispatch gaps.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/benchmarks/local_serving_benchmark_report.md' },
-            { id: 'b_eag2', label: 'QKV + PagedAttn', flex: 24, tone: 'am', stream: 'compute_stream', title: 'Same Attention Fast Path (Symmetric Control)', metric: '19.85 ms Hit TTFT', delta: '23.0% slower than fused path', desc: 'Symmetric ablation holds Triton PagedAttention constant so the 4.57 ms delta isolates pure .cu RMSNorm + Triton SwiGLU gain.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/benchmarks/local_serving_benchmark_report.md' },
-            { id: 'b_eag3', label: 'silu · mul · cast · copy (×24)', flex: 38, tone: 'rd', stream: 'compute_stream (Unfused Eager)', title: 'Fragmented Eager SwiGLU Launches', metric: '54.62 ms Contig. SDPA Baseline', delta: '3.57× slower without Radix+Fusion', desc: 'Small launch gaps dominate runtime on short 32-token tail recompute steps across 24 layers.', link: 'https://github.com/yuri-infra/fused-cuda-triton-inductor/blob/main/benchmarks/local_gpu_benchmark_report.md' },
+            { id: 'b_eag1', label: 'cast · mul · mean · rsqrt · add (×48)', flex: 42, tone: 'rd', stream: 'compute_stream (Unfused Eager)', title: 'Fragmented PyTorch Eager RMSNorm Ops', metric: '814 CUDA launches / step', delta: '+414 redundant micro-kernels', desc: 'Without .cu FusedAddRMSNorm, each norm triggers multiple memory-bound elementwise & reduction launches with Python dispatch gaps.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/benchmarks/local_serving_benchmark_report.md' },
+            { id: 'b_eag2', label: 'QKV + PagedAttn', flex: 22, tone: 'am', stream: 'compute_stream', title: 'Same Attention Fast Path (Symmetric Control)', metric: '19.85 ms Hit TTFT', delta: '23.0% slower than fused path', desc: 'Symmetric ablation holds Triton PagedAttention constant so the 4.57 ms delta isolates pure .cu RMSNorm + Triton SwiGLU gain.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/benchmarks/local_serving_benchmark_report.md' },
+            { id: 'b_eag3', label: 'silu · mul · cast · copy (×24)', flex: 36, tone: 'rd', stream: 'compute_stream (Unfused Eager)', title: 'Fragmented Eager SwiGLU Launches', metric: '54.62 ms Contig. SDPA Baseline', delta: '3.57× slower without Radix+Fusion', desc: 'Small launch gaps dominate runtime on short 32-token tail recompute steps across 24 layers.', link: 'https://github.com/yuri-infra/fused-cuda-triton-inductor/blob/main/benchmarks/local_gpu_benchmark_report.md' },
           ]],
         },
         {
@@ -828,6 +831,8 @@
   };
 
   const traceChassis = document.getElementById('traceChassis');
+  const traceStage = traceChassis.querySelector('.trace-stage');
+  const traceCanvas = traceChassis.querySelector('.trace-canvas');
   const traceLanesEl = document.getElementById('traceLanes');
   const traceModePill = document.getElementById('traceModePill');
   const tracePlayBtn = document.getElementById('tracePlayBtn');
@@ -836,6 +841,14 @@
 
   let traceMode = 'optimized';
   let selectedTraceId = 't_norm1';
+  let userTracePaused = false;
+
+  function syncTraceScrollHint() {
+    if (!traceStage) return;
+    const scrollable = traceStage.scrollWidth > traceStage.clientWidth + 1;
+    traceChassis.classList.toggle('is-scrollable', scrollable);
+    traceChassis.dataset.scrollSync = 'ready';
+  }
 
   function findTraceBlock(mode, id) {
     const cfg = TRACE_DATA[mode];
@@ -862,7 +875,9 @@
     document.getElementById('traceInspDelta').textContent = blk.delta;
     document.getElementById('traceInspLink').href = blk.link;
     traceLanesEl.querySelectorAll('.trace-blk').forEach((el) => {
-      el.classList.toggle('selected', el.dataset.tid === blk.id);
+      const on = el.dataset.tid === blk.id;
+      el.classList.toggle('selected', on);
+      el.setAttribute('aria-pressed', String(on));
     });
   }
 
@@ -870,7 +885,9 @@
     traceMode = mode;
     const cfg = TRACE_DATA[mode] || TRACE_DATA.optimized;
     document.querySelectorAll('[data-trace-mode]').forEach((b) => {
-      b.classList.toggle('active', b.dataset.traceMode === mode);
+      const on = b.dataset.traceMode === mode;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
     });
     traceModePill.textContent = cfg.pill;
     traceModePill.classList.toggle('is-baseline', cfg.isBaseline);
@@ -885,7 +902,7 @@
           ${lane.rows.map((row) => `
             <div class="trace-row">
               ${row.map((blk) => `
-                <button type="button" class="trace-blk tone-${blk.tone} ${blk.dashed ? 'dashed' : ''}" data-tid="${blk.id}" style="flex:${blk.flex} 1 0" title="${blk.title}">
+                <button type="button" class="trace-blk tone-${blk.tone} ${blk.dashed ? 'dashed' : ''}" data-tid="${blk.id}" aria-pressed="false" style="flex:${blk.flex} 1 0" title="${blk.title}">
                   ${blk.label}
                 </button>
               `).join('')}
@@ -908,20 +925,51 @@
 
     const initial = findTraceBlock(traceMode, selectedTraceId);
     updateTraceInspector(initial.lane, initial.blk);
+    syncTraceScrollHint();
   }
 
   document.querySelectorAll('[data-trace-mode]').forEach((b) => {
     b.addEventListener('click', () => renderTrace(b.dataset.traceMode));
   });
 
+  const reducedMotionMq = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  function syncTracePlayControl() {
+    const reduced = Boolean(reducedMotionMq && reducedMotionMq.matches);
+    if (reduced) {
+      traceChassis.classList.add('paused');
+      tracePlayBtn.disabled = true;
+      tracePlayBtn.setAttribute('aria-pressed', 'false');
+      tracePlayIcon.textContent = '⏸';
+      tracePlayText.textContent = 'Reduced';
+      tracePlayBtn.title = 'Sweep animation disabled by OS prefers-reduced-motion';
+    } else {
+      tracePlayBtn.disabled = false;
+      traceChassis.classList.toggle('paused', userTracePaused);
+      tracePlayBtn.setAttribute('aria-pressed', String(!userTracePaused));
+      tracePlayIcon.textContent = userTracePaused ? '▶' : '⏸';
+      tracePlayText.textContent = userTracePaused ? 'Paused' : 'Sweep';
+      tracePlayBtn.title = 'Pause or resume scanline';
+    }
+  }
+
   tracePlayBtn.addEventListener('click', () => {
-    const paused = traceChassis.classList.toggle('paused');
-    tracePlayBtn.setAttribute('aria-pressed', String(!paused));
-    tracePlayIcon.textContent = paused ? '▶' : '⏸';
-    tracePlayText.textContent = paused ? 'Paused' : 'Sweep';
+    if (tracePlayBtn.disabled) return;
+    userTracePaused = !userTracePaused;
+    syncTracePlayControl();
   });
 
+  reducedMotionMq?.addEventListener?.('change', syncTracePlayControl);
+  syncTracePlayControl();
+
   renderTrace('optimized');
+
+  if (typeof ResizeObserver !== 'undefined' && traceStage) {
+    const traceRo = new ResizeObserver(syncTraceScrollHint);
+    traceRo.observe(traceStage);
+    if (traceCanvas) traceRo.observe(traceCanvas);
+  }
+  window.addEventListener('resize', syncTraceScrollHint);
+  document.fonts?.ready?.then(syncTraceScrollHint);
 
   // =========================================================================
   // 4. SYSTEM TABS + DEEP-LINK HASH SUPPORT (#kernels, #serving, #longctx)
@@ -1030,7 +1078,11 @@
 
   function renderKernelWorkload(id) {
     const w = KERNEL_WORKLOADS.find((x) => x.id === id) || KERNEL_WORKLOADS[0];
-    kSel.querySelectorAll('.mini-pill').forEach((b) => b.classList.toggle('active', b.dataset.wid === w.id));
+    kSel.querySelectorAll('.mini-pill').forEach((b) => {
+      const on = b.dataset.wid === w.id;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
     const maxVal = Math.max(...w.bars.map((b) => b.val));
     kBars.innerHTML = w.bars.map((b) => {
       const pct = Math.max(6, (b.val / maxVal) * 100);
@@ -1092,7 +1144,11 @@
 
   function renderServing(mode) {
     const cfg = SERVING_MODES[mode] || SERVING_MODES.full_fused;
-    document.querySelectorAll('[data-serv-mode]').forEach((b) => b.classList.toggle('active', b.dataset.servMode === mode));
+    document.querySelectorAll('[data-serv-mode]').forEach((b) => {
+      const on = b.dataset.servMode === mode;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
     servGrid.innerHTML = cfg.cards.map((c) => `
       <div class="serv-tile">
         <div class="serv-label mono">${c.label}</div>
@@ -1147,7 +1203,11 @@
     activeRingMode = mode || activeRingMode;
     const cfg = RING_MODES[activeRingMode] || RING_MODES.zigzag;
     const light = isLightTheme();
-    document.querySelectorAll('[data-ring-mode]').forEach((b) => b.classList.toggle('active', b.dataset.ringMode === activeRingMode));
+    document.querySelectorAll('[data-ring-mode]').forEach((b) => {
+      const on = b.dataset.ringMode === activeRingMode;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
 
     ringBarsEl.innerHTML = cfg.ranks.map((r) => {
       const col = light ? r.lightCol : r.darkCol;
@@ -1195,23 +1255,17 @@
         <text x="230" y="67" text-anchor="middle" fill="${centerSub}" font-size="9" font-family="var(--font-mono)">${cfg.centerSub}</text>
       </svg>
       <div class="dma-strip mono">
-        <div class="dma-row">
-          <span>compute_stream</span>
-          <div class="dma-blocks">
-            <span class="dma-blk" style="background:var(--vi-bg);color:var(--vi);border:1px solid var(--vi-bd)">FA2 Fwd L_k</span>
-            <span class="dma-blk" style="background:var(--cy-bg);color:var(--cy);border:1px solid var(--cy-bd)">152K CE addmm_</span>
-            <span class="dma-blk" style="background:var(--vi-bg);color:var(--vi);border:1px solid var(--vi-bd)">SAC Bwd L_k+1</span>
-            <span class="dma-blk" style="background:var(--vi-bg);color:var(--vi);border:1px solid var(--vi-bd)">SAC Bwd L_k</span>
-          </div>
-        </div>
-        <div class="dma-row">
-          <span>offload_stream</span>
-          <div class="dma-blocks">
-            <span class="dma-blk" style="background:var(--am-bg);color:var(--am);border:1px solid var(--am-bd)">D2H Pin L_k</span>
-            <span class="dma-blk" style="background:var(--em-bg);color:var(--em);border:1px solid var(--em-bd)">H2D Prefetch</span>
-            <span class="dma-blk" style="background:var(--em-bg);color:var(--em);border:1px solid var(--em-bd)">H2D L_k-1</span>
-            <span class="dma-blk" style="background:var(--em-bg);color:var(--em);border:1px solid var(--em-bd)">100% Hidden</span>
-          </div>
+        <div class="dma-grid">
+          <span class="dma-stream-lbl">compute_stream</span>
+          <span class="dma-blk" style="background:var(--vi-bg);color:var(--vi);border:1px solid var(--vi-bd)">FA2 Fwd L_k</span>
+          <span class="dma-blk" style="background:var(--cy-bg);color:var(--cy);border:1px solid var(--cy-bd)">152K CE addmm_</span>
+          <span class="dma-blk" style="background:var(--vi-bg);color:var(--vi);border:1px solid var(--vi-bd)">SAC Bwd L_k+1</span>
+          <span class="dma-blk" style="background:var(--vi-bg);color:var(--vi);border:1px solid var(--vi-bd)">SAC Bwd L_k</span>
+          <span class="dma-stream-lbl">offload_stream</span>
+          <span class="dma-blk" style="background:var(--am-bg);color:var(--am);border:1px solid var(--am-bd)">D2H Pin L_k</span>
+          <span class="dma-blk" style="background:var(--em-bg);color:var(--em);border:1px solid var(--em-bd)">H2D Prefetch</span>
+          <span class="dma-blk" style="background:var(--em-bg);color:var(--em);border:1px solid var(--em-bd)">H2D L_k-1</span>
+          <span class="dma-blk" style="background:var(--em-bg);color:var(--em);border:1px solid var(--em-bd)">100% Hidden</span>
         </div>
       </div>
     `;
@@ -1258,7 +1312,11 @@
 
   function selectLadder(id) {
     const st = LADDER_STAGES.find((x) => x.id === id) || LADDER_STAGES[3];
-    ladderEl.querySelectorAll('.ladder-step').forEach((el) => el.classList.toggle('active', el.dataset.lid === st.id));
+    ladderEl.querySelectorAll('.ladder-step').forEach((el) => {
+      const on = el.dataset.lid === st.id;
+      el.classList.toggle('active', on);
+      el.setAttribute('aria-pressed', String(on));
+    });
     ladderDetailEl.textContent = st.detail;
   }
 
@@ -1277,8 +1335,11 @@
   const ledgerRows = document.querySelectorAll('#ledgerBody tr');
   document.querySelectorAll('.ledger-filter-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.ledger-filter-btn').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
+      document.querySelectorAll('.ledger-filter-btn').forEach((b) => {
+        const on = b === btn;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', String(on));
+      });
       const filt = btn.dataset.ledger;
       ledgerRows.forEach((tr) => {
         const match = filt === 'all' || tr.dataset.sys === filt;

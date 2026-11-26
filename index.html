@@ -152,10 +152,10 @@
           </p>
         </div>
         <div class="filter-group" role="group" aria-label="Filter roofline points by domain">
-          <button type="button" class="filter-btn active mono" data-domain="all">All (8)</button>
-          <button type="button" class="filter-btn mono" data-domain="kernels">Kernels (.cu/Triton)</button>
-          <button type="button" class="filter-btn mono" data-domain="serving">Serving</button>
-          <button type="button" class="filter-btn mono" data-domain="training">32K Training</button>
+          <button type="button" class="filter-btn active mono" data-domain="all" aria-pressed="true">All (8)</button>
+          <button type="button" class="filter-btn mono" data-domain="kernels" aria-pressed="false">Kernels (.cu/Triton)</button>
+          <button type="button" class="filter-btn mono" data-domain="serving" aria-pressed="false">Serving</button>
+          <button type="button" class="filter-btn mono" data-domain="training" aria-pressed="false">32K Training</button>
         </div>
       </div>
 
@@ -218,8 +218,8 @@
         </div>
         <div class="trace-controls">
           <div class="toggle-group" role="group" aria-label="Trace mode">
-            <button type="button" class="toggle-opt active mono" data-trace-mode="optimized">Optimized (Fused / Async)</button>
-            <button type="button" class="toggle-opt mono" data-trace-mode="baseline">Baseline (Unfused / Sync)</button>
+            <button type="button" class="toggle-opt active mono" data-trace-mode="optimized" aria-pressed="true">Optimized (Fused / Async)</button>
+            <button type="button" class="toggle-opt mono" data-trace-mode="baseline" aria-pressed="false">Baseline (Unfused / Sync)</button>
           </div>
           <button type="button" id="tracePlayBtn" class="icon-btn mono" aria-pressed="true" title="Pause or resume scanline">
             <span id="tracePlayIcon">⏸</span>
@@ -369,9 +369,9 @@
           <div class="sim-card-head">
             <span class="mono sim-title">Interactive Serving Engine Ablation Switch (Qwen2.5-0.5B BF16 · 16,384 KV Slots)</span>
             <div class="toggle-group" role="group" aria-label="Serving engine mode">
-              <button type="button" class="toggle-opt mono" data-serv-mode="baseline">Baseline (Contig. SDPA)</button>
-              <button type="button" class="toggle-opt mono" data-serv-mode="paged_eager">Paged + Radix (Eager Norm)</button>
-              <button type="button" class="toggle-opt active mono" data-serv-mode="full_fused">Full Stack (+ .cu Fused)</button>
+              <button type="button" class="toggle-opt mono" data-serv-mode="baseline" aria-pressed="false">Baseline (Contig. SDPA)</button>
+              <button type="button" class="toggle-opt mono" data-serv-mode="paged_eager" aria-pressed="false">Paged + Radix (Eager Norm)</button>
+              <button type="button" class="toggle-opt active mono" data-serv-mode="full_fused" aria-pressed="true">Full Stack (+ .cu Fused)</button>
             </div>
           </div>
           <div id="servingMetricsGrid" class="serving-metrics-grid"></div>
@@ -401,8 +401,8 @@
             <div class="sim-card-head">
               <span class="mono sim-title accent-vi">ZigZag Causal Ring Simulator (P=4, S=4096)</span>
               <div class="toggle-group" role="group" aria-label="Ring attention partition mode">
-                <button type="button" class="toggle-opt mono" data-ring-mode="contiguous">Contiguous (6.99×)</button>
-                <button type="button" class="toggle-opt active mono" data-ring-mode="zigzag">ZigZag (1.00×)</button>
+                <button type="button" class="toggle-opt mono" data-ring-mode="contiguous" aria-pressed="false">Contiguous (6.99×)</button>
+                <button type="button" class="toggle-opt active mono" data-ring-mode="zigzag" aria-pressed="true">ZigZag (1.00×)</button>
               </div>
             </div>
             <div id="ringBars" class="ring-bars"></div>
@@ -434,10 +434,10 @@
           </p>
         </div>
         <div class="filter-group" role="group" aria-label="Filter benchmark ledger">
-          <button type="button" class="ledger-filter-btn active mono" data-ledger="all">All (10)</button>
-          <button type="button" class="ledger-filter-btn mono" data-ledger="kernels">01 Kernels (3)</button>
-          <button type="button" class="ledger-filter-btn mono" data-ledger="serving">02 Serving (3)</button>
-          <button type="button" class="ledger-filter-btn mono" data-ledger="training">03 32K Train (4)</button>
+          <button type="button" class="ledger-filter-btn active mono" data-ledger="all" aria-pressed="true">All (10)</button>
+          <button type="button" class="ledger-filter-btn mono" data-ledger="kernels" aria-pressed="false">01 Kernels (3)</button>
+          <button type="button" class="ledger-filter-btn mono" data-ledger="serving" aria-pressed="false">02 Serving (3)</button>
+          <button type="button" class="ledger-filter-btn mono" data-ledger="training" aria-pressed="false">03 32K Train (4)</button>
         </div>
       </div>
 
