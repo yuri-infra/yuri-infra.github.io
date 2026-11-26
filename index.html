@@ -68,7 +68,7 @@
           <div class="kpi-tile kpi-em">
             <div class="kpi-val mono">311.0 GB/s</div>
             <div class="kpi-lbl">99.5% D2D Roof</div>
-            <div class="kpi-sub mono">512MB HBM · .cu uint4</div>
+            <div class="kpi-sub mono">512MB GDDR7 · .cu uint4</div>
           </div>
           <div class="kpi-tile kpi-cy">
             <div class="kpi-val mono">7.37×</div>
@@ -88,9 +88,9 @@
         </div>
 
         <div class="hero-cta-row">
-          <a href="#roofline" class="btn-solid mono">Inspect Interactive Roofline ↓</a>
-          <a href="#systems" class="btn-outline mono">Run System Simulators</a>
-          <a href="mailto:zhuhw26@m.fudan.edu.cn" class="btn-ghost mono">zhuhw26@m.fudan.edu.cn</a>
+          <a href="#roofline" class="btn-solid mono">Inspect Roofline ↓</a>
+          <a href="#systems" class="btn-outline mono">System Simulators</a>
+          <a href="mailto:zhuhw26@m.fudan.edu.cn" class="btn-ghost mono" title="zhuhw26@m.fudan.edu.cn">Email ✉</a>
         </div>
       </div>
 
@@ -111,16 +111,16 @@
         <div class="term-chips" aria-label="Quick terminal commands">
           <span class="chips-label mono">RUN:</span>
           <button type="button" class="cmd-chip mono" data-cmd="neofetch">neofetch</button>
-          <button type="button" class="cmd-chip mono" data-cmd="cuobjdump --ptx">cuobjdump --ptx</button>
+          <button type="button" class="cmd-chip mono" data-cmd="nvidia-smi">nvidia-smi</button>
+          <button type="button" class="cmd-chip mono" data-cmd="cuobjdump --ptx">cuobjdump</button>
           <button type="button" class="cmd-chip mono" data-cmd="bench --all">bench --all</button>
-          <button type="button" class="cmd-chip mono" data-cmd="ls projects">ls projects</button>
-          <button type="button" class="cmd-chip mono" data-cmd="contact">contact</button>
+          <button type="button" class="cmd-chip mono" data-cmd="ls projects">projects</button>
           <button type="button" class="cmd-chip mono" data-cmd="help">help</button>
         </div>
 
         <form id="termForm" class="term-input-row" autocomplete="off">
           <label for="termInput" class="prompt mono">❯</label>
-          <input id="termInput" type="text" class="term-input mono" placeholder="Type a command (help, neofetch, bench --all, cat project1)..." spellcheck="false" autocomplete="off">
+          <input id="termInput" type="text" class="term-input mono" placeholder="Try: help, nvidia-smi, cuobjdump --ptx, bench --all, cat project1..." spellcheck="false" autocomplete="off">
         </form>
       </div>
     </section>
@@ -330,6 +330,7 @@
               </div>
             </div>
             <div id="ringBars" class="ring-bars"></div>
+            <div id="ringVisual" class="ring-visual" aria-label="4-Rank P2P Ring and Dual-Stream DMA Telemetry"></div>
             <div id="ringSummary" class="sim-footnote mono"></div>
           </div>
 
@@ -372,7 +373,7 @@
           <tbody>
             <tr>
               <td class="mono"><a href="https://github.com/yuri-infra/fused-cuda-triton-inductor" target="_blank" rel="noopener noreferrer" class="accent-em">01 · Kernels</a></td>
-              <td><code>FusedAddRMSNorm (.cu)</code> [16384×4096 FP16, 512MB]</td>
+              <td><code>FusedAddRMSNorm (.cu)</code> [16384×4096 FP16, 512MB GDDR7]</td>
               <td class="mono">312.6 GB/s D2D Roof</td>
               <td class="mono"><strong>311.0 GB/s</strong> (1726.2 μs)</td>
               <td class="mono accent-em">99.5% D2D · 5.55× Eager</td>
