@@ -5,7 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Hongwei Zhu (yuri-infra) — GPU Systems &amp; Compilers Lab</title>
   <meta name="description" content="Hongwei Zhu (yuri-infra) — Fudan University M.Eng. AI Infra Systems Engineer: CUDA C++ (.cu), OpenAI Triton, TorchInductor, PagedAttention Serving &amp; 32K Long-Context Training on Blackwell sm_120.">
+  <meta name="color-scheme" content="dark light">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23080d18'/%3E%3Crect x='14' y='14' width='36' height='36' rx='6' fill='none' stroke='%2300e5ff' stroke-width='3'/%3E%3Crect x='22' y='22' width='8' height='8' rx='1.5' fill='%2310f5a0'/%3E%3Crect x='34' y='22' width='8' height='8' rx='1.5' fill='%2300e5ff'/%3E%3Crect x='22' y='34' width='8' height='8' rx='1.5' fill='%2338bdf8'/%3E%3Crect x='34' y='34' width='8' height='8' rx='1.5' fill='%23b57bff'/%3E%3C/svg%3E">
+  <script>
+    (() => {
+      try {
+        const q = new URLSearchParams(window.location.search).get('theme');
+        const saved = localStorage.getItem('yuri-infra-theme');
+        const sysLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+        const theme = (q === 'light' || q === 'dark') ? q : ((saved === 'light' || saved === 'dark') ? saved : (sysLight ? 'light' : 'dark'));
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch (_) {}
+    })();
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -26,12 +38,13 @@
       </a>
       <nav class="nav-links" aria-label="Primary navigation">
         <a href="#roofline">Roofline</a>
+        <a href="#trace">Nsight Trace</a>
         <a href="#systems">Systems</a>
         <a href="#ledger">Benchmarks</a>
         <a href="#background">Profile</a>
       </nav>
       <div class="topbar-actions">
-        <button id="themeToggle" class="icon-btn mono" type="button" aria-label="Toggle color theme" title="Switch Dark / Light theme">
+        <button id="themeToggle" class="icon-btn mono" type="button" aria-label="Toggle color theme" title="Switch Obsidian / Light Lab theme">
           <span id="themeIcon">◐</span>
           <span id="themeLabel">Obsidian</span>
         </button>
@@ -89,13 +102,16 @@
 
         <div class="hero-cta-row">
           <a href="#roofline" class="btn-solid mono">Inspect Roofline ↓</a>
-          <a href="#systems" class="btn-outline mono">System Simulators</a>
-          <a href="mailto:zhuhw26@m.fudan.edu.cn" class="btn-ghost mono" title="zhuhw26@m.fudan.edu.cn">Email ✉</a>
+          <a href="#trace" class="btn-outline mono">Nsight Trace</a>
+          <a href="#systems" class="btn-outline mono">Simulators</a>
+          <button type="button" class="btn-ghost mono copy-email-btn" data-email="zhuhw26@m.fudan.edu.cn" title="Copy zhuhw26@m.fudan.edu.cn">
+            Copy Email ✉
+          </button>
         </div>
       </div>
 
-      <!-- REAL INTERACTIVE TERMINAL EMULATOR -->
-      <div class="terminal-window" aria-label="Interactive GPU Systems Terminal">
+      <!-- REAL INTERACTIVE TERMINAL EMULATOR (Full Light & Dark Theme Parity) -->
+      <div class="terminal-window" id="terminalWindow" aria-label="Interactive GPU Systems Terminal">
         <div class="term-header">
           <div class="term-dots">
             <span class="dot red"></span>
@@ -113,19 +129,19 @@
           <button type="button" class="cmd-chip mono" data-cmd="neofetch">neofetch</button>
           <button type="button" class="cmd-chip mono" data-cmd="nvidia-smi">nvidia-smi</button>
           <button type="button" class="cmd-chip mono" data-cmd="cuobjdump --ptx">cuobjdump</button>
+          <button type="button" class="cmd-chip mono" data-cmd="diff --fusion">diff --fusion</button>
           <button type="button" class="cmd-chip mono" data-cmd="bench --all">bench --all</button>
-          <button type="button" class="cmd-chip mono" data-cmd="ls projects">projects</button>
           <button type="button" class="cmd-chip mono" data-cmd="help">help</button>
         </div>
 
         <form id="termForm" class="term-input-row" autocomplete="off">
           <label for="termInput" class="prompt mono">❯</label>
-          <input id="termInput" type="text" class="term-input mono" placeholder="Try: help, nvidia-smi, cuobjdump --ptx, bench --all, cat project1..." spellcheck="false" autocomplete="off">
+          <input id="termInput" type="text" class="term-input mono" placeholder="Try: diff --fusion, bench --all, theme light (Tab completes)" spellcheck="false" autocomplete="off">
         </form>
       </div>
     </section>
 
-    <!-- INTERACTIVE LOG-LOG GPU ROOFLINE EXPLORER -->
+    <!-- 01: INTERACTIVE LOG-LOG GPU ROOFLINE EXPLORER -->
     <section id="roofline" class="section container">
       <div class="section-head">
         <div>
@@ -190,11 +206,68 @@
       </div>
     </section>
 
-    <!-- INTERACTIVE 3-SYSTEM DEEP DIVE SIMULATORS -->
+    <!-- 02: INTERACTIVE NSIGHT-STYLE MULTI-STREAM EXECUTION TRACE -->
+    <section id="trace" class="section container">
+      <div class="section-head">
+        <div>
+          <div class="eyebrow mono">// 02 · NSIGHT_MULTI_STREAM_TRACE</div>
+          <h2>Interactive Multi-Stream GPU Execution Trace</h2>
+          <p class="section-desc">
+            Toggle <strong>Optimized vs Baseline</strong> profiles across all three systems and click any kernel or DMA block to inspect its CUDA stream, launch compaction, and overlap telemetry.
+          </p>
+        </div>
+        <div class="trace-controls">
+          <div class="toggle-group" role="group" aria-label="Trace mode">
+            <button type="button" class="toggle-opt active mono" data-trace-mode="optimized">Optimized (Fused / Async)</button>
+            <button type="button" class="toggle-opt mono" data-trace-mode="baseline">Baseline (Unfused / Sync)</button>
+          </div>
+          <button type="button" id="tracePlayBtn" class="icon-btn mono" aria-pressed="true" title="Pause or resume scanline">
+            <span id="tracePlayIcon">⏸</span>
+            <span id="tracePlayText">Sweep</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="trace-chassis" id="traceChassis">
+        <div class="trace-topbar mono">
+          <span><span class="dot-inline cy"></span>RTX 5060 SM_120 · VERIFIED 5-RUN ABA EXECUTION TIMELINES</span>
+          <span id="traceModePill" class="trace-mode-pill">OPTIMIZED · -50.9% LAUNCHES · -90.5% P99 · 100% PCIE HIDDEN</span>
+        </div>
+
+        <div class="trace-stage">
+          <div class="trace-playhead" id="tracePlayhead" aria-hidden="true"></div>
+          <div id="traceLanes" class="trace-lanes"></div>
+        </div>
+
+        <div id="traceInspector" class="trace-inspector" aria-live="polite">
+          <div class="trace-insp-main">
+            <div class="trace-insp-head">
+              <span id="traceInspTag" class="mono insp-badge tone-em">LANE 01 · KERNEL FUSION</span>
+              <span id="traceInspStream" class="mono trace-stream-chip">compute_stream (c10::Dispatcher)</span>
+            </div>
+            <h3 id="traceInspTitle">.cu FusedAddRMSNorm (Single-Pass uint4)</h3>
+            <p id="traceInspDesc" class="trace-insp-desc"></p>
+          </div>
+          <div class="trace-insp-stats">
+            <div class="trace-stat">
+              <span class="mono insp-k">Measured</span>
+              <span id="traceInspMetric" class="mono insp-v"></span>
+            </div>
+            <div class="trace-stat">
+              <span class="mono insp-k">Delta vs Baseline</span>
+              <span id="traceInspDelta" class="mono insp-v"></span>
+            </div>
+            <a id="traceInspLink" href="#" target="_blank" rel="noopener noreferrer" class="btn-solid mono">Inspect Kernel ↗</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 03: INTERACTIVE 3-SYSTEM DEEP DIVE SIMULATORS -->
     <section id="systems" class="section container">
       <div class="section-head">
         <div>
-          <div class="eyebrow mono">// 02 · FEATURED_SYSTEMS</div>
+          <div class="eyebrow mono">// 03 · FEATURED_SYSTEMS</div>
           <h2>Three End-to-End AI Infra Engines</h2>
           <p class="section-desc">
             Switch between the three pinned repositories below to interact with verified kernel benchmarks, serving tail-latency ablations, and 32K long-context memory &amp; Ring Attention simulators.
@@ -347,15 +420,21 @@
       </div>
     </section>
 
-    <!-- VERIFIED BENCHMARK LEDGER -->
+    <!-- 04: VERIFIED BENCHMARK LEDGER -->
     <section id="ledger" class="section container">
       <div class="section-head">
         <div>
-          <div class="eyebrow mono">// 03 · VERIFIED_BENCHMARK_LEDGER</div>
+          <div class="eyebrow mono">// 04 · VERIFIED_BENCHMARK_LEDGER</div>
           <h2>Reproducible 5-Run ABA Telemetry</h2>
           <p class="section-desc">
             Every metric below is directly backed by committed benchmark reports and deterministic test suites (24/24 tests passing across all 3 repositories).
           </p>
+        </div>
+        <div class="filter-group" role="group" aria-label="Filter benchmark ledger">
+          <button type="button" class="ledger-filter-btn active mono" data-ledger="all">All (10)</button>
+          <button type="button" class="ledger-filter-btn mono" data-ledger="kernels">01 Kernels (3)</button>
+          <button type="button" class="ledger-filter-btn mono" data-ledger="serving">02 Serving (3)</button>
+          <button type="button" class="ledger-filter-btn mono" data-ledger="training">03 32K Train (4)</button>
         </div>
       </div>
 
@@ -370,71 +449,71 @@
               <th>Verified Delta</th>
             </tr>
           </thead>
-          <tbody>
-            <tr>
+          <tbody id="ledgerBody">
+            <tr data-sys="kernels">
               <td class="mono"><a href="https://github.com/yuri-infra/fused-cuda-triton-inductor" target="_blank" rel="noopener noreferrer" class="accent-em">01 · Kernels</a></td>
               <td><code>FusedAddRMSNorm (.cu)</code> [16384×4096 FP16, 512MB GDDR7]</td>
               <td class="mono">312.6 GB/s D2D Roof</td>
               <td class="mono"><strong>311.0 GB/s</strong> (1726.2 μs)</td>
               <td class="mono accent-em">99.5% D2D · 5.55× Eager</td>
             </tr>
-            <tr>
+            <tr data-sys="kernels">
               <td class="mono"><a href="https://github.com/yuri-infra/fused-cuda-triton-inductor" target="_blank" rel="noopener noreferrer" class="accent-em">01 · Kernels</a></td>
               <td>Triton GQA Q+K RoPE (<code>B=1, S=1, 16Q/4KV</code>)</td>
               <td class="mono">16.2 μs (compile) / 138.7 μs</td>
               <td class="mono"><strong>11.6 μs</strong> (single launch)</td>
               <td class="mono accent-em">1.40× compile · 11.97× Eager</td>
             </tr>
-            <tr>
+            <tr data-sys="kernels">
               <td class="mono"><a href="https://github.com/yuri-infra/fused-cuda-triton-inductor" target="_blank" rel="noopener noreferrer" class="accent-em">01 · Kernels</a></td>
               <td><code>Fused Linear+CE</code> (M=4096, V=128,256 BF16)</td>
               <td class="mono">1002.0 MB activ / 114.22 ms</td>
               <td class="mono"><strong>258.5 MB</strong> activ / 115.35 ms</td>
               <td class="mono accent-em">-74.2% Activ VRAM · 0.99× spd</td>
             </tr>
-            <tr>
+            <tr data-sys="serving">
               <td class="mono"><a href="https://github.com/yuri-infra/qwen-paged-serving" target="_blank" rel="noopener noreferrer" class="accent-cy">02 · Serving</a></td>
               <td>24-Way Multi-Turn Throughput (16,384 KV slots, t=0)</td>
               <td class="mono">114.0 tok/s (35.99% frag)</td>
               <td class="mono"><strong>839.9 tok/s</strong> (0.63% frag)</td>
               <td class="mono accent-cy">7.37× tok/s · 83.8% Radix hit</td>
             </tr>
-            <tr>
+            <tr data-sys="serving">
               <td class="mono"><a href="https://github.com/yuri-infra/qwen-paged-serving" target="_blank" rel="noopener noreferrer" class="accent-cy">02 · Serving</a></td>
               <td>12-Way Decode + 4×768 Burst (Chunked-Prefill=96)</td>
               <td class="mono">289.03 ms ITL P99</td>
               <td class="mono"><strong>27.45 ms</strong> ITL P99</td>
               <td class="mono accent-cy">-90.5% Tail Latency (10.53×)</td>
             </tr>
-            <tr>
+            <tr data-sys="serving">
               <td class="mono"><a href="https://github.com/yuri-infra/qwen-paged-serving" target="_blank" rel="noopener noreferrer" class="accent-cy">02 · Serving</a></td>
               <td>1056-Tok TTFT (1024 Hit + Cross-Repo <code>.cu</code> Fusion)</td>
               <td class="mono">54.62 ms / 814 launches</td>
               <td class="mono"><strong>15.28 ms</strong> / 400 launches</td>
               <td class="mono accent-cy">-72.0% TTFT · -50.9% launches</td>
             </tr>
-            <tr>
+            <tr data-sys="training">
               <td class="mono"><a href="https://github.com/yuri-infra/qwen-32k-longctx-train" target="_blank" rel="noopener noreferrer" class="accent-vi">03 · 32K Train</a></td>
               <td>Single-8GB 2-Step Steady-State Max Context</td>
               <td class="mono">1,024 tokens (SDPA+AdamW)</td>
               <td class="mono"><strong>32,768 tokens</strong> (Full 32K)</td>
               <td class="mono accent-vi">32.0× Context · 0 OOM</td>
             </tr>
-            <tr>
+            <tr data-sys="training">
               <td class="mono"><a href="https://github.com/yuri-infra/qwen-32k-longctx-train" target="_blank" rel="noopener noreferrer" class="accent-vi">03 · 32K Train</a></td>
               <td>Intra-Layer SAC + Zero-Atomic Triton FA2 (S=4096)</td>
               <td class="mono">3813.0 MB activ / 14.87 TF</td>
               <td class="mono"><strong>739.3 MB</strong> / <strong>15.13 TFLOPS</strong></td>
               <td class="mono accent-vi">-80.6% Activ VRAM · 1.02× Full-Ckpt</td>
             </tr>
-            <tr>
+            <tr data-sys="training">
               <td class="mono"><a href="https://github.com/yuri-infra/qwen-32k-longctx-train" target="_blank" rel="noopener noreferrer" class="accent-vi">03 · 32K Train</a></td>
               <td>Dual-Stream Pinned DMA Offload (B=4, S=2048, 672MB)</td>
               <td class="mono">1225.64 ms (sync, 52.47ms PCIe)</td>
               <td class="mono"><strong>1170.31 ms</strong> (async prefetch)</td>
               <td class="mono accent-vi">-55.33 ms · 100% PCIe Hidden</td>
             </tr>
-            <tr>
+            <tr data-sys="training">
               <td class="mono"><a href="https://github.com/yuri-infra/qwen-32k-longctx-train" target="_blank" rel="noopener noreferrer" class="accent-vi">03 · 32K Train</a></td>
               <td>Multi-Proc ZigZag Causal Ring (P=4 Balance / P=2 Grad)</td>
               <td class="mono">6.99× FLOP imbalance</td>
@@ -446,11 +525,11 @@
       </div>
     </section>
 
-    <!-- PROFILE, EDUCATION, RESEARCH & INDUSTRY -->
+    <!-- 05: PROFILE, EDUCATION, RESEARCH & INDUSTRY -->
     <section id="background" class="section container">
       <div class="section-head">
         <div>
-          <div class="eyebrow mono">// 04 · BACKGROUND_AND_CREDENTIALS</div>
+          <div class="eyebrow mono">// 05 · BACKGROUND_AND_CREDENTIALS</div>
           <h2>Education, Publication &amp; Engineering Experience</h2>
         </div>
       </div>
@@ -497,6 +576,8 @@
       </div>
       <div class="footer-links">
         <a href="mailto:zhuhw26@m.fudan.edu.cn">zhuhw26@m.fudan.edu.cn</a>
+        <span>·</span>
+        <button type="button" class="footer-copy-btn mono copy-email-btn" data-email="zhuhw26@m.fudan.edu.cn">Copy</button>
         <span>·</span>
         <a href="https://github.com/yuri-infra" target="_blank" rel="noopener noreferrer">github.com/yuri-infra</a>
       </div>

@@ -2,30 +2,75 @@
   'use strict';
 
   // =========================================================================
-  // 1. THEME TOGGLE (Obsidian Dark default / Precision Light)
+  // 1. DUAL-THEME ENGINE (Obsidian Dark <-> Light Silicon Blueprint)
   // =========================================================================
   const root = document.documentElement;
   const themeBtn = document.getElementById('themeToggle');
   const themeLabel = document.getElementById('themeLabel');
-  const savedTheme = localStorage.getItem('yuri-infra-theme');
-  if (savedTheme === 'light' || savedTheme === 'dark') {
-    root.setAttribute('data-theme', savedTheme);
+  const themeListeners = [];
+
+  const isLightTheme = () => root.getAttribute('data-theme') === 'light';
+
+  function applyTheme(next, persist = true) {
+    const val = next === 'light' ? 'light' : 'dark';
+    root.setAttribute('data-theme', val);
+    if (persist) {
+      try { localStorage.setItem('yuri-infra-theme', val); } catch (_) {}
+    }
+    themeLabel.textContent = val === 'light' ? 'Light Lab' : 'Obsidian';
+    themeListeners.forEach((fn) => fn(val));
   }
-  const syncThemeUI = () => {
-    const isLight = root.getAttribute('data-theme') === 'light';
-    themeLabel.textContent = isLight ? 'Light Lab' : 'Obsidian';
-  };
-  syncThemeUI();
+
+  // Sync button text with initial theme set in <head>
+  themeLabel.textContent = isLightTheme() ? 'Light Lab' : 'Obsidian';
+
   themeBtn.addEventListener('click', () => {
-    const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    root.setAttribute('data-theme', next);
-    localStorage.setItem('yuri-infra-theme', next);
-    syncThemeUI();
+    applyTheme(isLightTheme() ? 'dark' : 'light', true);
+  });
+
+  // Live follow OS prefers-color-scheme if user hasn't pinned a manual override
+  if (window.matchMedia) {
+    const mq = window.matchMedia('(prefers-color-scheme: light)');
+    const onSysChange = (e) => {
+      try {
+        if (!localStorage.getItem('yuri-infra-theme')) {
+          applyTheme(e.matches ? 'light' : 'dark', false);
+        }
+      } catch (_) {}
+    };
+    mq.addEventListener?.('change', onSysChange);
+  }
+
+  // =========================================================================
+  // 1B. ONE-CLICK COPY EMAIL
+  // =========================================================================
+  document.querySelectorAll('.copy-email-btn').forEach((btn) => {
+    const orig = btn.textContent;
+    btn.addEventListener('click', async () => {
+      const email = btn.dataset.email || 'zhuhw26@m.fudan.edu.cn';
+      let copied = false;
+      try {
+        await navigator.clipboard.writeText(email);
+        copied = true;
+      } catch (_) {
+        const ta = document.createElement('textarea');
+        ta.value = email;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        try { copied = document.execCommand('copy'); } catch (__) {}
+        document.body.removeChild(ta);
+      }
+      btn.textContent = copied ? 'Copied ✓' : email;
+      setTimeout(() => { btn.textContent = orig; }, 1800);
+    });
   });
 
   // =========================================================================
-  // 2. INTERACTIVE TERMINAL EMULATOR (100% Verified Data)
+  // 2. INTERACTIVE TERMINAL EMULATOR (100% Verified Data + Tab Autocomplete)
   // =========================================================================
+  const termWindow = document.getElementById('terminalWindow');
   const termOut = document.getElementById('termOutput');
   const termForm = document.getElementById('termForm');
   const termInput = document.getElementById('termInput');
@@ -34,14 +79,17 @@
   const COMMANDS = {
     help: () => [
       '<span class="t-cy">Available Commands:</span>',
-      '  <span class="t-em">neofetch</span>        — Candidate profile, GPU hardware &amp; credentials',
-      '  <span class="t-em">nvidia-smi</span>      — Verified RTX 5060 sm_120 hardware &amp; runtime stack',
-      '  <span class="t-em">cuobjdump --ptx</span> — SM_120 PTX instruction audit for compiled .so',
-      '  <span class="t-em">bench --all</span>     — 5-run ABA median highlights across all 3 engines',
-      '  <span class="t-em">ls projects</span>     — List the 3 pinned AI Infra repositories',
+      '  <span class="t-em">neofetch</span>          — Candidate profile, GPU hardware &amp; credentials',
+      '  <span class="t-em">nvidia-smi</span>        — Verified RTX 5060 sm_120 hardware &amp; runtime stack',
+      '  <span class="t-em">cuobjdump --ptx</span>   — SM_120 PTX instruction audit for compiled .so',
+      '  <span class="t-em">diff --fusion</span>     — torch.profiler CUDA launch compaction (814 → 400)',
+      '  <span class="t-em">bench --all</span>       — 5-run ABA median highlights across all 3 engines',
+      '  <span class="t-em">ls projects</span>       — List the 3 pinned AI Infra repositories',
       '  <span class="t-em">cat project{1..3}</span> — Architecture summary for each repository',
-      '  <span class="t-em">contact</span>         — Email, location &amp; internship availability',
-      '  <span class="t-em">clear</span>           — Clear terminal viewport',
+      '  <span class="t-em">edu</span>               — Education, IROS 2025 publication &amp; Uniview internship',
+      '  <span class="t-em">theme light|dark</span>  — Live-switch UI theme (Light Lab / Obsidian)',
+      '  <span class="t-em">contact</span>           — Email, location &amp; internship availability',
+      '  <span class="t-em">clear</span>             — Clear terminal viewport',
     ].join('\n'),
 
     neofetch: () => [
@@ -77,6 +125,13 @@
       '  <span class="t-vi">shfl.sync.bfly.b32</span>     : <strong>140</strong> (warp butterfly register reductions)',
       '  <span class="t-am">bar.sync</span>               : <strong>28</strong>  (CTA synchronization barriers)',
       '<span class="t-em">✔ Attained [16384×4096 FP16]: 311.0 GB/s (99.5% of 312.6 GB/s D2D roof)</span>',
+    ].join('\n'),
+
+    'diff --fusion': () => [
+      '<span class="t-dim"># Symmetric Cross-Repo Fusion Ablation (Qwen2.5-0.5B 24L · 1056-tok Prompt, 1024 Hit)</span>',
+      '<span class="t-err">- Eager Norm/MLP (same Triton PagedAttn) : 814 CUDA launches/step · TTFT 19.85 ms</span>',
+      '<span class="t-em">+ Cross-Repo .cu RMSNorm + Triton SwiGLU : 400 CUDA launches/step · TTFT 15.28 ms</span>',
+      '<span class="t-cy">Δ Impact : -414 launches (-50.9%) · -23.0% hit TTFT · -72.0% vs 54.62ms SDPA baseline</span>',
     ].join('\n'),
 
     'bench --all': () => [
@@ -124,6 +179,26 @@
       '       SAC (15.13 TFLOPS), in-place addmm_ 152K CE, dual-stream pinned DMA &amp; HybridCPUAdamW.',
     ].join('\n'),
 
+    edu: () => [
+      '<span class="t-cy">[Education]</span>',
+      '  • M.Eng. Electronic Information · Fudan University (2026 – 2029, Shanghai)',
+      '  • B.Eng. · Tiangong University · Rank 1 / 59 (GPA 3.92)',
+      '<span class="t-vi">[Publication &amp; Service]</span>',
+      '  • IEEE/RSJ IROS 2025 (Robotics) — Sole Corresponding Author &amp; Invited Reviewer',
+      '<span class="t-em">[Industry]</span>',
+      '  • Zhejiang Uniview Technologies — Embedded C Systems Intern (6 Months)',
+    ].join('\n'),
+
+    'theme light': () => {
+      applyTheme('light', true);
+      return '<span class="t-em">✔ Switched UI theme → Light Lab (Silicon Blueprint)</span>';
+    },
+
+    'theme dark': () => {
+      applyTheme('dark', true);
+      return '<span class="t-cy">✔ Switched UI theme → Obsidian (Hardware Console)</span>';
+    },
+
     contact: () => [
       '<span class="t-em">● Open for AI Infra Internships (GPU Kernels · Compilers · LLM Systems)</span>',
       '  Email        : <span class="t-cy">zhuhw26@m.fudan.edu.cn</span>',
@@ -136,11 +211,16 @@
   const CMD_ALIASES = {
     cuobjdump: 'cuobjdump --ptx',
     ptx: 'cuobjdump --ptx',
+    diff: 'diff --fusion',
+    fusion: 'diff --fusion',
     bench: 'bench --all',
     ls: 'ls projects',
     projects: 'ls projects',
+    resume: 'edu',
+    cv: 'edu',
   };
 
+  const AUTOCOMPLETE_POOL = Object.keys(COMMANDS);
   const cmdHistory = [];
   let histIdx = -1;
 
@@ -168,7 +248,7 @@
     if (COMMANDS[key]) {
       appendBlock(COMMANDS[key]());
     } else {
-      appendBlock(`<span class="t-err">zsh: command not found: ${escapeHtml(cmd)}</span> <span class="t-dim">(try 'help', 'nvidia-smi', or 'bench --all')</span>`);
+      appendBlock(`<span class="t-err">zsh: command not found: ${escapeHtml(cmd)}</span> <span class="t-dim">(try 'help', 'diff --fusion', or 'bench --all')</span>`);
     }
   }
 
@@ -191,6 +271,32 @@
       e.preventDefault();
       histIdx = Math.min(cmdHistory.length, histIdx + 1);
       termInput.value = cmdHistory[histIdx] || '';
+    } else if (e.key === 'Tab') {
+      const val = termInput.value.trim().toLowerCase();
+      if (!val) return;
+      const match = AUTOCOMPLETE_POOL.find((c) => c.startsWith(val));
+      if (match) {
+        e.preventDefault();
+        termInput.value = match;
+      }
+    }
+  });
+
+  // Focus terminal when clicking inside viewport (unless selecting text or clicking a button)
+  termWindow.addEventListener('click', (e) => {
+    if (e.target.closest('button, a, input')) return;
+    if (window.getSelection && window.getSelection().toString()) return;
+    termInput.focus();
+  });
+
+  // Press '/' anywhere to jump to terminal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      e.preventDefault();
+      termInput.focus();
+      termWindow.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   });
 
@@ -201,17 +307,18 @@
 
   // Boot sequence (fits cleanly without triggering scrollbar)
   runCommand('neofetch');
-  appendBlock('<div class="t-dim" style="margin-top:4px">Tip: click a RUN chip or type <span class="t-em">nvidia-smi</span> / <span class="t-em">cuobjdump --ptx</span> / <span class="t-em">bench --all</span>.</div>');
+  appendBlock('<div class="t-dim" style="margin-top:4px">Tip: press <span class="t-cy">/</span> to type, <span class="t-cy">Tab</span> to autocomplete, or run <span class="t-em">diff --fusion</span> / <span class="t-em">theme light</span>.</div>');
 
   // =========================================================================
-  // 3. INTERACTIVE LOG-LOG GPU ROOFLINE CHART (8 Verified Operating Points)
+  // 3. INTERACTIVE LOG-LOG GPU ROOFLINE CHART (Dual-Theme Reactive SVG)
   // =========================================================================
   const ROOFLINE_POINTS = [
     {
       id: 'rmsnorm_hbm',
       domain: 'kernels',
       tone: 'em',
-      color: '#10f5a0',
+      darkColor: '#10f5a0',
+      lightColor: '#047857',
       label: 'FusedAddRMSNorm (.cu) 512MB',
       short: 'RMSNorm .cu (512MB)',
       I: 0.75,
@@ -230,7 +337,8 @@
       id: 'rmsnorm_fp32',
       domain: 'kernels',
       tone: 'em',
-      color: '#34d399',
+      darkColor: '#34d399',
+      lightColor: '#059669',
       label: 'FusedAddRMSNorm (.cu) FP32',
       short: 'RMSNorm .cu (FP32)',
       I: 0.42,
@@ -249,7 +357,8 @@
       id: 'gqa_rope_m1',
       domain: 'kernels',
       tone: 'am',
-      color: '#fbbf24',
+      darkColor: '#fbbf24',
+      lightColor: '#b45309',
       label: 'Triton GQA RoPE (B=1, S=1)',
       short: 'GQA RoPE (M=1)',
       I: 0.22,
@@ -268,7 +377,8 @@
       id: 'rmsnorm_m1',
       domain: 'kernels',
       tone: 'am',
-      color: '#f59e0b',
+      darkColor: '#f59e0b',
+      lightColor: '#c2410c',
       label: 'FusedAddRMSNorm (.cu) Decode M=1',
       short: 'RMSNorm .cu (M=1)',
       I: 0.14,
@@ -287,7 +397,8 @@
       id: 'chunked_ce',
       domain: 'kernels',
       tone: 'em',
-      color: '#2dd4bf',
+      darkColor: '#2dd4bf',
+      lightColor: '#0f766e',
       label: '128K Chunked Linear + CE (BF16)',
       short: '128K Chunked CE',
       I: 18.5,
@@ -306,7 +417,8 @@
       id: 'paged_attn',
       domain: 'serving',
       tone: 'cy',
-      color: '#00e5ff',
+      darkColor: '#00e5ff',
+      lightColor: '#0284c7',
       label: 'Triton PagedAttention Split-KV (7:1 GQA)',
       short: 'PagedAttn Split-KV',
       I: 6.2,
@@ -325,7 +437,8 @@
       id: 'serving_hit',
       domain: 'serving',
       tone: 'cy',
-      color: '#38bdf8',
+      darkColor: '#38bdf8',
+      lightColor: '#0369a1',
       label: 'Qwen2.5 Serving Hit TTFT (+ .cu Fusion)',
       short: 'Serving Hit TTFT',
       I: 1.9,
@@ -344,7 +457,8 @@
       id: 'sac_fa2',
       domain: 'training',
       tone: 'vi',
-      color: '#b57bff',
+      darkColor: '#b57bff',
+      lightColor: '#6d28d9',
       label: 'Intra-Layer SAC + Zero-Atomic Triton FA2',
       short: 'SAC + Triton FA2',
       I: 68.0,
@@ -370,7 +484,6 @@
     const badge = document.getElementById('inspBadge');
     badge.textContent = pt.regime;
     badge.className = `insp-badge mono tone-${pt.tone || 'em'}`;
-    badge.removeAttribute('style');
 
     document.getElementById('inspTitle').textContent = pt.label;
     document.getElementById('inspDesc').textContent = pt.desc;
@@ -385,6 +498,41 @@
   }
 
   function renderRoofline() {
+    const light = isLightTheme();
+    const pal = light ? {
+      plotBg: '#f8fafc',
+      plotBd: '#cbd5e1',
+      grid: '#e2e8f0',
+      tick: '#64748b',
+      axis: '#475569',
+      em: '#047857',
+      cy: '#0284c7',
+      vi: '#6d28d9',
+      spec: '#64748b',
+      dotRing: '#ffffff',
+      lblSel: '#0f172a',
+      lblIdle: '#334155',
+      halo: '#f8fafc',
+      memOp: '0.13',
+      cmpOp: '0.14',
+    } : {
+      plotBg: '#050912',
+      plotBd: '#1e2d44',
+      grid: '#152236',
+      tick: '#7f92ab',
+      axis: '#94a3b8',
+      em: '#10f5a0',
+      cy: '#00e5ff',
+      vi: '#b57bff',
+      spec: '#64748b',
+      dotRing: '#060b14',
+      lblSel: '#ffffff',
+      lblIdle: '#cbd5e1',
+      halo: '#050912',
+      memOp: '0.16',
+      cmpOp: '0.18',
+    };
+
     const px0 = 62, py0 = 26, pw = 552, ph = 294;
     const ixMin = Math.log10(0.08), ixMax = Math.log10(160);
     const pyMin = Math.log10(0.008), pyMax = Math.log10(45);
@@ -397,27 +545,31 @@
     const yML = my(0.08 * bwMeas), ySL = my(0.08 * bwSpec);
     const xSR = mx(32 / bwSpec), ySR = my(32);
 
+    // Exact screen angle of the memory bandwidth diagonal
+    const slopeDeg = (Math.atan2(yP - yML, xR - px0) * 180) / Math.PI;
+    const sMidX = mx(3.0), sMidY = my(3.0 * bwMeas);
+
     const visible = ROOFLINE_POINTS.filter((p) => activeDomain === 'all' || p.domain === activeDomain);
     const sel = ROOFLINE_POINTS.find((p) => p.id === selectedId) || visible[0];
 
-    let parts = [
+    const parts = [
       `<defs>
         <linearGradient id="rfMem" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#10f5a0" stop-opacity="0.16"/>
-          <stop offset="100%" stop-color="#10f5a0" stop-opacity="0"/>
+          <stop offset="0%" stop-color="${pal.em}" stop-opacity="${pal.memOp}"/>
+          <stop offset="100%" stop-color="${pal.em}" stop-opacity="0"/>
         </linearGradient>
         <linearGradient id="rfCmp" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stop-color="#b57bff" stop-opacity="0.18"/>
-          <stop offset="100%" stop-color="#b57bff" stop-opacity="0"/>
+          <stop offset="0%" stop-color="${pal.vi}" stop-opacity="${pal.cmpOp}"/>
+          <stop offset="100%" stop-color="${pal.vi}" stop-opacity="0"/>
         </linearGradient>
         <linearGradient id="rfLine" x1="0%" y1="100%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#10f5a0"/>
-          <stop offset="72%" stop-color="#00e5ff"/>
-          <stop offset="100%" stop-color="#b57bff"/>
+          <stop offset="0%" stop-color="${pal.em}"/>
+          <stop offset="72%" stop-color="${pal.cy}"/>
+          <stop offset="100%" stop-color="${pal.vi}"/>
         </linearGradient>
         <clipPath id="rfPlotClip"><rect x="${px0}" y="${py0}" width="${pw}" height="${ph}"/></clipPath>
       </defs>`,
-      `<rect x="${px0}" y="${py0}" width="${pw}" height="${ph}" fill="#050912" stroke="#1e2d44" stroke-width="1"/>`,
+      `<rect x="${px0}" y="${py0}" width="${pw}" height="${ph}" fill="${pal.plotBg}" stroke="${pal.plotBd}" stroke-width="1"/>`,
       `<g clip-path="url(#rfPlotClip)">
         <polygon points="${px0},${py0+ph} ${px0},${yML} ${xR},${yP} ${xR},${py0+ph}" fill="url(#rfMem)"/>
         <polygon points="${xR},${py0+ph} ${xR},${yP} ${px0+pw},${yP} ${px0+pw},${py0+ph}" fill="url(#rfCmp)"/>
@@ -427,62 +579,70 @@
     // Gridlines
     [0.1, 1, 10, 100].forEach((v) => {
       const x = mx(v);
-      parts.push(`<line x1="${x}" y1="${py0}" x2="${x}" y2="${py0+ph}" stroke="#152236" stroke-width="1"/>`);
-      parts.push(`<text x="${x}" y="${py0+ph+17}" text-anchor="middle" fill="#7f92ab" font-size="10.5" font-family="var(--font-mono)">${v}</text>`);
+      parts.push(`<line x1="${x}" y1="${py0}" x2="${x}" y2="${py0+ph}" stroke="${pal.grid}" stroke-width="1"/>`);
+      parts.push(`<text x="${x}" y="${py0+ph+17}" text-anchor="middle" fill="${pal.tick}" font-size="10.5" font-family="var(--font-mono)">${v}</text>`);
     });
-    parts.push(`<line x1="${xR}" y1="${yP}" x2="${xR}" y2="${py0+ph}" stroke="#b57bff" stroke-width="1.2" stroke-dasharray="4 4" opacity="0.75"/>`);
-    parts.push(`<text x="${xR}" y="${py0+ph+17}" text-anchor="middle" fill="#b57bff" font-size="10.5" font-weight="700" font-family="var(--font-mono)">48.4</text>`);
+    parts.push(`<line x1="${xR}" y1="${yP}" x2="${xR}" y2="${py0+ph}" stroke="${pal.vi}" stroke-width="1.2" stroke-dasharray="4 4" opacity="0.78"/>`);
+    parts.push(`<text x="${xR}" y="${py0+ph+17}" text-anchor="middle" fill="${pal.vi}" font-size="10.5" font-weight="700" font-family="var(--font-mono)">48.4</text>`);
 
     [0.01, 0.1, 1, 10, 30].forEach((v) => {
       const y = my(v);
-      parts.push(`<line x1="${px0}" y1="${y}" x2="${px0+pw}" y2="${y}" stroke="#152236" stroke-width="1"/>`);
-      parts.push(`<text x="${px0-9}" y="${y+3.5}" text-anchor="end" fill="#7f92ab" font-size="10.5" font-family="var(--font-mono)">${v}</text>`);
+      parts.push(`<line x1="${px0}" y1="${y}" x2="${px0+pw}" y2="${y}" stroke="${pal.grid}" stroke-width="1"/>`);
+      parts.push(`<text x="${px0-9}" y="${y+3.5}" text-anchor="end" fill="${pal.tick}" font-size="10.5" font-family="var(--font-mono)">${v}</text>`);
     });
 
     // Roofline ceilings
     parts.push(`<g clip-path="url(#rfPlotClip)">
-      <line x1="${px0}" y1="${ySL}" x2="${xSR}" y2="${ySR}" stroke="#64748b" stroke-width="1.3" stroke-dasharray="5 5" opacity="0.65"/>
+      <line x1="${px0}" y1="${ySL}" x2="${xSR}" y2="${ySR}" stroke="${pal.spec}" stroke-width="1.3" stroke-dasharray="5 5" opacity="0.65"/>
       <polyline points="${px0},${yML} ${xR},${yP} ${px0+pw},${yP}" fill="none" stroke="url(#rfLine)" stroke-width="2.8" stroke-linejoin="round"/>
+    </g>`);
+
+    // Slope annotations cleanly tucked above both roofline diagonals (zero dashed-line collision)
+    parts.push(`<g transform="translate(${sMidX.toFixed(1)},${sMidY.toFixed(1)}) rotate(${slopeDeg.toFixed(2)})">
+      <text x="-8" y="-28" text-anchor="middle" fill="${pal.tick}" font-size="8.6" font-family="var(--font-mono)" paint-order="stroke" stroke="${pal.halo}" stroke-width="3">Nominal GDDR7 384 GB/s</text>
+      <text x="-8" y="-15" text-anchor="middle" fill="${pal.em}" font-size="9.0" font-weight="700" font-family="var(--font-mono)" paint-order="stroke" stroke="${pal.halo}" stroke-width="3">Measured D2D 312.6 GB/s (81.4%)</text>
     </g>`);
 
     // Active crosshair for selected node
     if (sel) {
       const sx = mx(sel.I), sy = my(sel.P);
-      parts.push(`<line x1="${sx}" y1="${sy}" x2="${sx}" y2="${py0+ph}" stroke="${sel.color}" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>`);
-      parts.push(`<line x1="${px0}" y1="${sy}" x2="${sx}" y2="${sy}" stroke="${sel.color}" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>`);
+      const selCol = light ? sel.lightColor : sel.darkColor;
+      parts.push(`<line x1="${sx}" y1="${sy}" x2="${sx}" y2="${py0+ph}" stroke="${selCol}" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>`);
+      parts.push(`<line x1="${px0}" y1="${sy}" x2="${sx}" y2="${sy}" stroke="${selCol}" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>`);
     }
 
     // Regime labels + axis titles
-    parts.push(`<text x="${mx(6)}" y="${py0+ph-12}" text-anchor="middle" fill="#64748b" font-size="10" font-weight="700" letter-spacing="1.4" font-family="var(--font-mono)">MEMORY-BOUND</text>`);
-    parts.push(`<text x="${mx(96)}" y="${py0+ph-12}" text-anchor="middle" fill="#b57bff" font-size="10" font-weight="700" letter-spacing="1.0" font-family="var(--font-mono)">COMPUTE</text>`);
-    parts.push(`<text x="${px0+pw/2}" y="358" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="600" font-family="var(--font-mono)">Operational Intensity I (FLOP / Byte) · Log₁₀</text>`);
-    parts.push(`<text transform="translate(17, ${py0+ph/2}) rotate(-90)" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="600" font-family="var(--font-mono)">Attained Performance (TFLOP/s)</text>`);
-    parts.push(`<text x="${px0+pw-6}" y="${yP-12}" text-anchor="end" fill="#b57bff" font-size="10.2" font-weight="700" font-family="var(--font-mono)">15.13 TFLOPS Sustained E2E</text>`);
+    parts.push(`<text x="${mx(6)}" y="${py0+ph-12}" text-anchor="middle" fill="${pal.tick}" font-size="10" font-weight="700" letter-spacing="1.4" font-family="var(--font-mono)">MEMORY-BOUND</text>`);
+    parts.push(`<text x="${mx(96)}" y="${py0+ph-12}" text-anchor="middle" fill="${pal.vi}" font-size="10" font-weight="700" letter-spacing="1.0" font-family="var(--font-mono)">COMPUTE</text>`);
+    parts.push(`<text x="${px0+pw/2}" y="358" text-anchor="middle" fill="${pal.axis}" font-size="11" font-weight="600" font-family="var(--font-mono)">Operational Intensity I (FLOP / Byte) · Log₁₀</text>`);
+    parts.push(`<text transform="translate(17, ${py0+ph/2}) rotate(-90)" text-anchor="middle" fill="${pal.axis}" font-size="11" font-weight="600" font-family="var(--font-mono)">Attained Performance (TFLOP/s)</text>`);
+    parts.push(`<text x="${px0+pw-6}" y="${yP-12}" text-anchor="end" fill="${pal.vi}" font-size="10.2" font-weight="700" font-family="var(--font-mono)">15.13 TFLOPS Sustained E2E</text>`);
 
-    // Points — carefully placed with micro leader lines to guarantee zero overlap with slope or ceiling
+    // Points — verified zero collision with slope annotations & ceiling
     const labelOffsets = {
-      rmsnorm_hbm:  [-16, -24, 'end', true],
-      rmsnorm_fp32: [26, 22, 'start', true],
+      rmsnorm_hbm:  [-18, -32, 'end', true],
+      rmsnorm_fp32: [24, 24, 'start', true],
       gqa_rope_m1:  [13, -3, 'start', false],
       rmsnorm_m1:   [13, 4, 'start', false],
-      chunked_ce:   [-16, -14, 'end', true],
+      chunked_ce:   [-20, -24, 'end', true],
       paged_attn:   [14, 18, 'start', true],
-      serving_hit:  [14, 17, 'start', true],
+      serving_hit:  [14, 18, 'start', true],
       sac_fa2:      [-6, 36, 'middle', true],
     };
 
     visible.forEach((p) => {
       const cx = mx(p.I), cy = my(p.P);
       const isSel = p.id === selectedId;
+      const col = light ? p.lightColor : p.darkColor;
       const [dx, dy, anchor, hasLeader] = labelOffsets[p.id] || [10, -10, 'start', false];
       const lx = cx + dx, ly = cy + dy;
       const lineX = anchor === 'end' ? lx + 3 : (anchor === 'start' ? lx - 3 : lx);
       const lineY = dy < 0 ? ly + 3 : ly - 10;
       parts.push(`<g class="rf-node" data-id="${p.id}" tabindex="0" role="button" aria-label="${p.label}">
-        ${hasLeader ? `<line x1="${cx}" y1="${cy}" x2="${lineX}" y2="${lineY}" stroke="${p.color}" stroke-width="1" stroke-opacity="${isSel ? 0.85 : 0.45}"/>` : ''}
-        ${isSel ? `<circle cx="${cx}" cy="${cy}" r="13" fill="${p.color}" fill-opacity="0.18" stroke="${p.color}" stroke-width="1.4"/>` : ''}
-        <circle class="rf-dot" cx="${cx}" cy="${cy}" r="${isSel ? 6.5 : 5.2}" fill="${p.color}" stroke="#060b14" stroke-width="1.8"/>
-        <text x="${lx}" y="${ly}" text-anchor="${anchor}" fill="${isSel ? '#ffffff' : '#cbd5e1'}" font-size="${isSel ? 10.6 : 9.6}" font-weight="${isSel ? 700 : 500}" font-family="var(--font-mono)" paint-order="stroke" stroke="#050912" stroke-width="4" stroke-linejoin="round">${p.short}</text>
+        ${hasLeader ? `<line x1="${cx}" y1="${cy}" x2="${lineX}" y2="${lineY}" stroke="${col}" stroke-width="1.1" stroke-opacity="${isSel ? 0.9 : 0.5}"/>` : ''}
+        ${isSel ? `<circle cx="${cx}" cy="${cy}" r="13" fill="${col}" fill-opacity="0.18" stroke="${col}" stroke-width="1.4"/>` : ''}
+        <circle class="rf-dot" cx="${cx}" cy="${cy}" r="${isSel ? 6.5 : 5.2}" fill="${col}" stroke="${pal.dotRing}" stroke-width="1.8"/>
+        <text x="${lx}" y="${ly}" text-anchor="${anchor}" fill="${isSel ? pal.lblSel : pal.lblIdle}" font-size="${isSel ? 10.6 : 9.6}" font-weight="${isSel ? 700 : 500}" font-family="var(--font-mono)" paint-order="stroke" stroke="${pal.halo}" stroke-width="4" stroke-linejoin="round">${p.short}</text>
       </g>`);
     });
 
@@ -512,7 +672,228 @@
     });
   });
 
+  themeListeners.push(() => renderRoofline());
   updateInspector(ROOFLINE_POINTS[0]);
+
+  // =========================================================================
+  // 3B. INTERACTIVE NSIGHT-STYLE MULTI-STREAM TRACE INSPECTOR
+  // =========================================================================
+  const TRACE_DATA = {
+    optimized: {
+      pill: 'OPTIMIZED · -50.9% LAUNCHES · -90.5% P99 · 100% PCIE HIDDEN',
+      isBaseline: false,
+      lanes: [
+        {
+          id: 'lane1',
+          tag: 'LANE 01 · KERNEL FUSION',
+          title: '01 · KERNEL FUSION',
+          sub: '400 Fused Launches (c10::Dispatch)',
+          tone: 'em',
+          kpiVal: '-50.9% Launches',
+          kpiSub: '814→400 · 15.28ms',
+          rows: [[
+            { id: 't_norm1', label: '.cu RMSNorm', flex: 12, tone: 'em', stream: 'compute_stream (c10::Dispatcher)', title: 'Native .cu FusedAddRMSNorm (Single-Pass uint4)', metric: '311.0 GB/s · 13.8 μs (M=1)', delta: '0 Python dispatch tax · 99.5% D2D roof', desc: 'Registered directly via TORCH_LIBRARY_IMPL(ai_infra, CUDA, m) with 80× ld.v4.u32 and 140× shfl.sync.bfly register reductions.', link: 'https://github.com/yuri-infra/fused-cuda-triton-inductor/blob/main/csrc/fused_add_rmsnorm_cuda.cu' },
+            { id: 't_qkv', label: 'cuBLAS QKV', flex: 11, tone: 'cy', stream: 'compute_stream (Tensor Core)', title: 'Ragged BF16 QKV Linear Projection', metric: '24L Qwen2.5-0.5B (14Q/2KV)', delta: 'Zero .flatten() copy overhead', desc: 'Packed ragged tokens flow straight into cuBLAS Tensor Core GEMM without padding waste or intermediate KV copies.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/llm_serving/model_runner.py' },
+            { id: 't_rope', label: 'GQA RoPE', flex: 10, tone: 'em', stream: 'compute_stream (Triton JIT)', title: 'Dual-Grid Fused GQA Q+K RoPE', metric: '11.6 μs (Single Launch)', delta: '1.40× compile · 11.97× Eager', desc: 'Merges sibling Q and K rotary embeddings into one heterogeneous-head Triton launch, halving launch latency on M=1 decode.', link: 'https://github.com/yuri-infra/fused-cuda-triton-inductor/blob/main/ai_infra_fused_ops/kernels.py' },
+            { id: 't_paged', label: 'PagedAttn', flex: 13, tone: 'cy', stream: 'compute_stream (Triton TC)', title: '7:1 GQA Tensor Core Triton PagedAttention', metric: '65.4 μs · 0.22 MB temp', delta: '1.76× vs .flatten()+SDPA', desc: 'Packs 7 Q-heads into BLOCK_G=16 for hardware Tensor Core tl.dot, reading each 16-token KV page once per group.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/llm_serving/paged_attention.py' },
+            { id: 't_swiglu', label: 'Triton SwiGLU', flex: 13, tone: 'em', stream: 'compute_stream (Cross-Repo)', title: 'Cross-Repo Fused Triton SwiGLU', metric: '400 ops / step total', delta: '-414 launches (-50.9%)', desc: 'Cross-repo mount of Repo 01 .cu RMSNorm + Triton SwiGLU inside Repo 02 serving engine compacts 814 launches down to 400.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/llm_serving/model_runner.py' },
+            { id: 't_down', label: 'cuBLAS Down', flex: 11, tone: 'cy', stream: 'compute_stream (Tensor Core)', title: 'FFN Down Projection + Residual', metric: '15.28 ms Hit TTFT', delta: '-23.0% vs Eager norm (19.85ms)', desc: 'Completes the fused transformer layer with minimal inter-kernel gaps across all 24 Qwen2.5 layers.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/benchmarks/local_serving_benchmark_report.md' },
+            { id: 't_saved', label: '-23.0% TTFT SAVED', flex: 20, tone: 'em', dashed: true, stream: 'Headroom Reclaimed', title: '4.57 ms Reclaimed on 1056-Tok Hit TTFT', metric: '19.85 ms → 15.28 ms', delta: '-72.0% (3.57×) vs 54.62ms SDPA', desc: 'Host-side launch tax removal turns 414 eliminated micro-kernels directly into lower end-to-end time-to-first-token.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/benchmarks/local_serving_benchmark_report.md' },
+          ]],
+        },
+        {
+          id: 'lane2',
+          tag: 'LANE 02 · CHUNKED PREFILL',
+          title: '02 · CHUNKED PREFILL',
+          sub: '96-tok Interleave (12w + 4×768)',
+          tone: 'cy',
+          kpiVal: '-90.5% P99 ITL',
+          kpiSub: '289.0 → 27.45 ms',
+          rows: [[
+            { id: 't_dec1', label: 'DEC 12w', flex: 10, tone: 'em', stream: 'GPU Worker (Decode Step)', title: '12-Way Active Decode Batch', metric: '27.45 ms ITL P99', delta: '-90.5% vs 289.03ms HoL stall', desc: 'Continuous batching guarantees active decode streams receive a smooth token slice between bounded prefill chunks.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/llm_serving/scheduler.py' },
+            { id: 't_pf0', label: 'PF c0 (96t)', flex: 11, tone: 'cy', stream: 'GPU Worker (budget=96)', title: 'Chunked Prefill Slice #0 (96 Tokens)', metric: 'budget = 96 tokens / iter', delta: '10.53× smoother P99 tail', desc: 'Slices incoming 4×768 burst prompts into 96-token quanta tracked by the unified kv_computed_tokens state machine.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/llm_serving/scheduler.py' },
+            { id: 't_dec2', label: 'DEC 12w', flex: 10, tone: 'em', stream: 'GPU Worker (Decode Step)', title: 'Interleaved Decode Slot #2', metric: '839.9 tok/s (24-way)', delta: '7.37× vs contiguous baseline', desc: 'Decode requests never wait behind 3,072 atomic prompt tokens; Radix-Tree CoW pages serve 83.8% prefix hits.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/llm_serving/radix_cache.py' },
+            { id: 't_pf1', label: 'PF c1 (96t)', flex: 11, tone: 'cy', stream: 'GPU Worker (budget=96)', title: 'Chunked Prefill Slice #1 (96 Tokens)', metric: '0.63% KV fragmentation', delta: 'Down from 35.99% waste', desc: 'Grid-Stride Triton Chunked-Prefill kernel processes arbitrary ragged chunk lengths without padding or truncation.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/llm_serving/paged_attention.py' },
+            { id: 't_dec3', label: 'DEC 12w', flex: 10, tone: 'em', stream: 'GPU Worker (Decode Step)', title: 'Interleaved Decode Slot #3', metric: '16,384 KV slot pool', delta: 'Zero block leak on preemption', desc: 'If VRAM fills, LIFO async Pinned Memory Swap cleanly migrates tail pages and rolls back with zero leaks.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/llm_serving/block_manager.py' },
+            { id: 't_pf2', label: 'PF c2 (96t)', flex: 11, tone: 'cy', stream: 'GPU Worker (budget=96)', title: 'Chunked Prefill Slice #2 (96 Tokens)', metric: 'budget = 96 tokens', delta: 'Zero head-of-line blocking', desc: 'Consistent token budget bounds worst-case iteration latency under heavy multi-tenant burst traffic.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/llm_serving/scheduler.py' },
+            { id: 't_dec4', label: 'DEC 12w', flex: 10, tone: 'em', stream: 'GPU Worker (Decode Step)', title: 'Interleaved Decode Slot #4', metric: '20/20 Exact Token Match', delta: 'Bit-checked vs HF Qwen2.5', desc: 'Deterministic greedy output verified exact across 20 generated tokens on real Qwen2.5-0.5B-Instruct weights.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/tests/test_serving_all.py' },
+            { id: 't_sse', label: 'DEC 12w · SSE', flex: 17, tone: 'em', stream: 'asyncio (epoll) Gateway', title: 'Decoupled Thread → call_soon_threadsafe SSE', metric: '2.45 ms Max Loop Jitter', delta: 'Down from 41.67 ms blocking', desc: 'Background GPU worker thread yields per layer (gil_scoped_release) so 2ms /health probes and SSE tokens stay <5ms.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/llm_serving/sse_gateway.py' },
+          ]],
+        },
+        {
+          id: 'lane3',
+          tag: 'LANE 03 · DUAL-STREAM DMA',
+          title: '03 · DUAL-STREAM DMA',
+          sub: 'compute_stream || offload_stream',
+          tone: 'vi',
+          kpiVal: '100% PCIe Mask',
+          kpiSub: '-55.3ms vs 52.5ms PCIe',
+          rows: [
+            [
+              { id: 't_fa_f1', label: 'L_k FA2 Fwd', flex: 18, tone: 'vi', stream: 'compute_stream (Triton FA2)', title: 'Zero-Atomic Triton GQA FA2 Forward (L_k)', metric: '15.13 TFLOPS (S=4096)', delta: '-80.6% activ VRAM via SAC', desc: 'Retains compact O(S) LSE and attention boundaries while dropping wide SwiGLU intermediates (>80% layer activation VRAM).', link: 'https://github.com/yuri-infra/qwen-32k-longctx-train/blob/main/long_ctx_train/flash_attn_triton.py' },
+              { id: 't_fa_f2', label: 'L_k+1 FA2 Fwd', flex: 18, tone: 'vi', stream: 'compute_stream (Triton FA2)', title: 'Forward Pass Overlapped with D2H DMA', metric: '32,768 tokens (Single 8GB)', delta: '32.0× steady context ladder', desc: 'While layer L_k+1 runs Triton FA2 on Tensor Cores, offload_stream asynchronously copies L_k boundaries to pinned host RAM.', link: 'https://github.com/yuri-infra/qwen-32k-longctx-train/blob/main/long_ctx_train/activation_offload.py' },
+              { id: 't_ce', label: '152K CE (addmm_)', flex: 24, tone: 'cy', stream: 'compute_stream (In-Place CE)', title: 'Full-Sequence 152K In-Place addmm_ Chunked CE', metric: '520 MB extra @ M=16K', delta: '>93% reduction vs ~13.9 GB', desc: 'Calls trigger_prefetch_latest() immediately on backward entry, hiding the last layer H2D prefetch inside the 151,936-vocab GEMM.', link: 'https://github.com/yuri-infra/qwen-32k-longctx-train/blob/main/long_ctx_train/selective_checkpoint.py' },
+              { id: 't_sac1', label: 'L_k+1 SAC Bwd', flex: 20, tone: 'vi', stream: 'compute_stream (Analytical Bwd)', title: 'Single-Trip Analytical SAC Backward (L_k+1)', metric: 'Zero atomic_add dK/dV', delta: '1.02× faster than Full-Ckpt', desc: 'Directly computes FA2 dQ/dK/dV from prefetched LSE without recomputing attention forward or Q/K/V/O/Down projections.', link: 'https://github.com/yuri-infra/qwen-32k-longctx-train/blob/main/long_ctx_train/selective_checkpoint.py' },
+              { id: 't_sac0', label: 'L_k SAC Bwd', flex: 20, tone: 'vi', stream: 'compute_stream (Analytical Bwd)', title: 'Prefetched Layer L_k Backward', metric: '1170.31 ms (672MB round-trip)', delta: '-55.33 ms vs 1225.64 ms sync', desc: 'Consumes 100% real offloaded activations (proven by zero-buffer tamper test_03) with zero PCIe wait bubble.', link: 'https://github.com/yuri-infra/qwen-32k-longctx-train/blob/main/tests/test_training_all.py' },
+            ],
+            [
+              { id: 't_d2h0', label: 'D2H Pin L_k', flex: 24, tone: 'am', stream: 'offload_stream (Async PCIe D2H)', title: 'Slot-Safe PinnedActivationPool D2H Copy', metric: '672.0 MB / step (B=4, S=2048)', delta: '52.47 ms bare PCIe completely masked', desc: 'Explicit slot in_use + d2h_done_event tracking prevents wraparound overwrite while streaming shallow activations to host RAM.', link: 'https://github.com/yuri-infra/qwen-32k-longctx-train/blob/main/long_ctx_train/activation_offload.py' },
+              { id: 't_d2h1', label: 'D2H Pin L_k+1', flex: 24, tone: 'am', stream: 'offload_stream (Async PCIe D2H)', title: 'Overlapped D2H Offload L_k+1', metric: 'Non-blocking cudaMemcpyAsync', delta: 'Zero compute_stream stall', desc: 'Synchronizes via fine-grained CUDA Events rather than heavyweight torch.cuda.synchronize() barriers.', link: 'https://github.com/yuri-infra/qwen-32k-longctx-train/blob/main/long_ctx_train/activation_offload.py' },
+              { id: 't_h2d1', label: 'H2D Prefetch L_k+1', flex: 26, tone: 'em', stream: 'offload_stream (Async PCIe H2D)', title: 'Lookahead H2D Prefetch During 152K CE', metric: '100% Overlap Efficiency', delta: 'Hidden inside vocab backward GEMM', desc: 'Triggered at loss backward entry so layer L_k+1 boundaries arrive in GDDR7 before SAC backward begins.', link: 'https://github.com/yuri-infra/qwen-32k-longctx-train/blob/main/long_ctx_train/selective_checkpoint.py' },
+              { id: 't_h2d0', label: 'H2D Prefetch L_k', flex: 26, tone: 'em', stream: 'offload_stream (Async PCIe H2D)', title: 'Lookahead H2D Prefetch L_k (Double-Buffer)', metric: '55.33 ms saved > 52.47 ms PCIe', delta: '5-run paired ABA triplet verified', desc: 'Double-buffered prefetch pulls L_k across PCIe while L_k+1 executes backward compute on the 26 Blackwell SMs.', link: 'https://github.com/yuri-infra/qwen-32k-longctx-train/blob/main/benchmarks/local_training_benchmark_report.md' },
+            ],
+          ],
+        },
+      ],
+    },
+    baseline: {
+      pill: 'BASELINE · 814 UNFUSED LAUNCHES · 289.03ms HoL STALL · SYNC PCIE WAIT',
+      isBaseline: true,
+      lanes: [
+        {
+          id: 'lane1_b',
+          tag: 'LANE 01 · UNFUSED EAGER',
+          title: '01 · EAGER DISPATCH',
+          sub: '814 Fragmented Small Kernels',
+          tone: 'rd',
+          kpiVal: '814 Launches',
+          kpiSub: '19.85ms (+4.57ms tax)',
+          rows: [[
+            { id: 'b_eag1', label: 'cast · mul · mean · rsqrt · add (×48)', flex: 38, tone: 'rd', stream: 'compute_stream (Unfused Eager)', title: 'Fragmented PyTorch Eager RMSNorm Ops', metric: '814 CUDA launches / step', delta: '+414 redundant micro-kernels', desc: 'Without .cu FusedAddRMSNorm, each norm triggers multiple memory-bound elementwise & reduction launches with Python dispatch gaps.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/benchmarks/local_serving_benchmark_report.md' },
+            { id: 'b_eag2', label: 'QKV + PagedAttn', flex: 24, tone: 'am', stream: 'compute_stream', title: 'Same Attention Fast Path (Symmetric Control)', metric: '19.85 ms Hit TTFT', delta: '23.0% slower than fused path', desc: 'Symmetric ablation holds Triton PagedAttention constant so the 4.57 ms delta isolates pure .cu RMSNorm + Triton SwiGLU gain.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/benchmarks/local_serving_benchmark_report.md' },
+            { id: 'b_eag3', label: 'silu · mul · cast · copy (×24)', flex: 38, tone: 'rd', stream: 'compute_stream (Unfused Eager)', title: 'Fragmented Eager SwiGLU Launches', metric: '54.62 ms Contig. SDPA Baseline', delta: '3.57× slower without Radix+Fusion', desc: 'Small launch gaps dominate runtime on short 32-token tail recompute steps across 24 layers.', link: 'https://github.com/yuri-infra/fused-cuda-triton-inductor/blob/main/benchmarks/local_gpu_benchmark_report.md' },
+          ]],
+        },
+        {
+          id: 'lane2_b',
+          tag: 'LANE 02 · ATOMIC PREFILL',
+          title: '02 · ATOMIC PREFILL',
+          sub: '4×768 Burst Blocks 12-Way Decode',
+          tone: 'rd',
+          kpiVal: '289.03 ms P99',
+          kpiSub: 'Severe HoL Decode Stall',
+          rows: [[
+            { id: 'b_pf_hol', label: 'ATOMIC BURST PREFILL: 4 × 768 TOKENS (HEAD-OF-LINE BLOCKING)', flex: 78, tone: 'rd', stream: 'compute_stream (No Chunking)', title: 'Unchunked Atomic Prefill Stall', metric: '289.03 ms ITL P99', delta: '10.53× worse tail latency', desc: 'Executing all 3,072 burst prompt tokens atomically freezes every active SSE decode user for nearly 300 ms.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/benchmarks/local_serving_benchmark_report.md' },
+            { id: 'b_dec_starve', label: 'DEC 12w (Starved)', flex: 22, tone: 'am', stream: 'Delayed Decode Step', title: 'Starved Decode Batch', metric: '114.0 tok/s · 35.99% frag', delta: '7.37× lower multi-turn throughput', desc: 'Contiguous pre-allocated KV cache wastes 35.99% VRAM on internal fragmentation and shares zero prefix blocks.', link: 'https://github.com/yuri-infra/qwen-paged-serving/blob/main/benchmarks/local_serving_benchmark_report.md' },
+          ]],
+        },
+        {
+          id: 'lane3_b',
+          tag: 'LANE 03 · SYNC SINGLE-STREAM',
+          title: '03 · SYNC OFFLOAD',
+          sub: 'Single Stream Serializes PCIe',
+          tone: 'rd',
+          kpiVal: '1225.64 ms',
+          kpiSub: '+52.47ms PCIe Exposed',
+          rows: [
+            [
+              { id: 'b_f1', label: 'FA2 Fwd', flex: 22, tone: 'vi', stream: 'Default Stream (Serialized)', title: 'Forward Pass Blocked by Sync Offload', metric: '1225.64 ms / step', delta: '+55.33 ms slower than dual-stream', desc: 'Executing D2H offload on the same default stream forces Blackwell SMs to sit idle while 672 MB crosses PCIe.', link: 'https://github.com/yuri-infra/qwen-32k-longctx-train/blob/main/benchmarks/local_training_benchmark_report.md' },
+              { id: 'b_stall1', label: 'SYNC D2H STALL', flex: 18, tone: 'rd', stream: 'SM Idle Bubble', title: 'Exposed PCIe D2H Transfer Stall', metric: '52.47 ms bare PCIe', delta: '0% overlap efficiency', desc: 'Without a dedicated offload_stream and CUDA event handshakes, PCIe round-trip latency adds directly to step wall-time.', link: 'https://github.com/yuri-infra/qwen-32k-longctx-train/blob/main/long_ctx_train/activation_offload.py' },
+              { id: 'b_ce', label: '152K CE', flex: 20, tone: 'cy', stream: 'Default Stream', title: '152K Loss Backward (No Prefetch)', metric: 'No lookahead H2D', delta: 'Missed overlap window', desc: 'Without trigger_prefetch_latest(), backward must stall for H2D transfer after loss GEMM finishes.', link: 'https://github.com/yuri-infra/qwen-32k-longctx-train/blob/main/long_ctx_train/selective_checkpoint.py' },
+              { id: 'b_stall2', label: 'SYNC H2D STALL', flex: 18, tone: 'rd', stream: 'SM Idle Bubble', title: 'Exposed PCIe H2D Fetch Stall', metric: 'Blocks SAC backward', delta: '1,024-tok ceiling w/ GPU AdamW', desc: 'Naive PyTorch baseline (SDPA + Full CE + GPU AdamW) OOMs above 1,024 tokens in 2-step steady state on 8GB.', link: 'https://github.com/yuri-infra/qwen-32k-longctx-train/blob/main/benchmarks/local_training_benchmark_report.md' },
+              { id: 'b_bwd', label: 'SAC Bwd', flex: 22, tone: 'vi', stream: 'Default Stream', title: 'Delayed Backward Compute', metric: '1225.64 ms total', delta: 'Dual-stream cuts to 1170.31 ms', desc: 'Switching to async dual-stream pinned DMA recovers the entire 52.47 ms PCIe round-trip (55.33 ms measured ABA delta).', link: 'https://github.com/yuri-infra/qwen-32k-longctx-train/blob/main/benchmarks/local_training_benchmark_report.md' },
+            ],
+          ],
+        },
+      ],
+    },
+  };
+
+  const traceChassis = document.getElementById('traceChassis');
+  const traceLanesEl = document.getElementById('traceLanes');
+  const traceModePill = document.getElementById('traceModePill');
+  const tracePlayBtn = document.getElementById('tracePlayBtn');
+  const tracePlayIcon = document.getElementById('tracePlayIcon');
+  const tracePlayText = document.getElementById('tracePlayText');
+
+  let traceMode = 'optimized';
+  let selectedTraceId = 't_norm1';
+
+  function findTraceBlock(mode, id) {
+    const cfg = TRACE_DATA[mode];
+    for (const lane of cfg.lanes) {
+      for (const row of lane.rows) {
+        for (const blk of row) {
+          if (blk.id === id) return { lane, blk };
+        }
+      }
+    }
+    const firstLane = cfg.lanes[0];
+    return { lane: firstLane, blk: firstLane.rows[0][0] };
+  }
+
+  function updateTraceInspector(lane, blk) {
+    selectedTraceId = blk.id;
+    const tag = document.getElementById('traceInspTag');
+    tag.textContent = lane.tag;
+    tag.className = `mono insp-badge tone-${blk.tone || lane.tone}`;
+    document.getElementById('traceInspStream').textContent = blk.stream;
+    document.getElementById('traceInspTitle').textContent = blk.title;
+    document.getElementById('traceInspDesc').textContent = blk.desc;
+    document.getElementById('traceInspMetric').textContent = blk.metric;
+    document.getElementById('traceInspDelta').textContent = blk.delta;
+    document.getElementById('traceInspLink').href = blk.link;
+    traceLanesEl.querySelectorAll('.trace-blk').forEach((el) => {
+      el.classList.toggle('selected', el.dataset.tid === blk.id);
+    });
+  }
+
+  function renderTrace(mode) {
+    traceMode = mode;
+    const cfg = TRACE_DATA[mode] || TRACE_DATA.optimized;
+    document.querySelectorAll('[data-trace-mode]').forEach((b) => {
+      b.classList.toggle('active', b.dataset.traceMode === mode);
+    });
+    traceModePill.textContent = cfg.pill;
+    traceModePill.classList.toggle('is-baseline', cfg.isBaseline);
+
+    traceLanesEl.innerHTML = cfg.lanes.map((lane) => `
+      <div class="trace-lane">
+        <div class="trace-lane-meta mono">
+          <span class="trace-lane-title accent-${lane.tone === 'rd' ? 'am' : lane.tone}" style="${lane.tone === 'rd' ? 'color:var(--rd)' : ''}">${lane.title}</span>
+          <span class="trace-lane-sub">${lane.sub}</span>
+        </div>
+        <div class="trace-track-col">
+          ${lane.rows.map((row) => `
+            <div class="trace-row">
+              ${row.map((blk) => `
+                <button type="button" class="trace-blk tone-${blk.tone} ${blk.dashed ? 'dashed' : ''}" data-tid="${blk.id}" style="flex:${blk.flex} 1 0" title="${blk.title}">
+                  ${blk.label}
+                </button>
+              `).join('')}
+            </div>
+          `).join('')}
+        </div>
+        <div class="trace-kpi tone-${lane.tone} mono">
+          <div class="trace-kpi-val">${lane.kpiVal}</div>
+          <div class="trace-kpi-sub">${lane.kpiSub}</div>
+        </div>
+      </div>
+    `).join('');
+
+    traceLanesEl.querySelectorAll('.trace-blk').forEach((el) => {
+      el.addEventListener('click', () => {
+        const found = findTraceBlock(traceMode, el.dataset.tid);
+        updateTraceInspector(found.lane, found.blk);
+      });
+    });
+
+    const initial = findTraceBlock(traceMode, selectedTraceId);
+    updateTraceInspector(initial.lane, initial.blk);
+  }
+
+  document.querySelectorAll('[data-trace-mode]').forEach((b) => {
+    b.addEventListener('click', () => renderTrace(b.dataset.traceMode));
+  });
+
+  tracePlayBtn.addEventListener('click', () => {
+    const paused = traceChassis.classList.toggle('paused');
+    tracePlayBtn.setAttribute('aria-pressed', String(!paused));
+    tracePlayIcon.textContent = paused ? '▶' : '⏸';
+    tracePlayText.textContent = paused ? 'Paused' : 'Sweep';
+  });
+
+  renderTrace('optimized');
 
   // =========================================================================
   // 4. SYSTEM TABS + DEEP-LINK HASH SUPPORT (#kernels, #serving, #longctx)
@@ -532,10 +913,13 @@
   }
 
   const tabArr = Array.from(tabBtns);
+  const safeReplaceHash = (h) => {
+    try { window.history.replaceState?.(null, '', `#${h}`); } catch (_) {}
+  };
   tabArr.forEach((b, idx) => {
     b.addEventListener('click', () => {
       activateTab(b.dataset.tab);
-      window.history.replaceState?.(null, '', `#${b.dataset.tab}`);
+      safeReplaceHash(b.dataset.tab);
     });
     b.addEventListener('keydown', (e) => {
       let nextIdx = null;
@@ -547,7 +931,7 @@
         e.preventDefault();
         tabArr[nextIdx].focus();
         activateTab(tabArr[nextIdx].dataset.tab);
-        window.history.replaceState?.(null, '', `#${tabArr[nextIdx].dataset.tab}`);
+        safeReplaceHash(tabArr[nextIdx].dataset.tab);
       }
     });
   });
@@ -695,38 +1079,32 @@
   renderServing('full_fused');
 
   // =========================================================================
-  // 7. TAB 3 SIMULATORS: ZIGZAG RING BALANCE + SINGLE-8GB CONTEXT LADDER
+  // 7. TAB 3 SIMULATORS: ZIGZAG RING BALANCE (DUAL-THEME) + CONTEXT LADDER
   // =========================================================================
   const RING_MODES = {
     contiguous: {
       pillTxt: '6.99× IMBALANCE · 1.75× STALL',
-      pillBg: 'rgba(251,113,133,0.16)',
-      pillCol: '#fb7185',
-      pillBd: 'rgba(251,113,133,0.45)',
-      ringStroke: '#f43f5e',
+      tone: 'rd',
       centerTop: '1.75× STALL',
       centerSub: 'R3 Straggler',
       ranks: [
-        { id: 'R0', chunks: '[c0,c1]', name: 'R0 [c0,c1]', pairs: 524800, pct: 14.3, col: '#fbbf24' },
-        { id: 'R1', chunks: '[c2,c3]', name: 'R1 [c2,c3]', pairs: 1573376, pct: 42.9, col: '#fb923c' },
-        { id: 'R2', chunks: '[c4,c5]', name: 'R2 [c4,c5]', pairs: 2621952, pct: 71.4, col: '#f43f5e' },
-        { id: 'R3', chunks: '[c6,c7]', name: 'R3 [c6,c7]', pairs: 3670528, pct: 100.0, col: '#e11d48' },
+        { id: 'R0', chunks: '[c0,c1]', name: 'R0 [c0,c1]', pairs: 524800, pct: 14.3, darkCol: '#fbbf24', lightCol: '#b45309' },
+        { id: 'R1', chunks: '[c2,c3]', name: 'R1 [c2,c3]', pairs: 1573376, pct: 42.9, darkCol: '#fb923c', lightCol: '#c2410c' },
+        { id: 'R2', chunks: '[c4,c5]', name: 'R2 [c4,c5]', pairs: 2621952, pct: 71.4, darkCol: '#f43f5e', lightCol: '#e11d48' },
+        { id: 'R3', chunks: '[c6,c7]', name: 'R3 [c6,c7]', pairs: 3670528, pct: 100.0, darkCol: '#e11d48', lightCol: '#be123c' },
       ],
       summary: 'Contiguous Split: Max/Min causal pair load ratio = 6.99× (3,670,528 vs 524,800). Rank 3 straggler stalls the entire 4-GPU ring by 1.75×.',
     },
     zigzag: {
       pillTxt: '1.00× BALANCE · ERR 8.58e-6',
-      pillBg: 'rgba(16,245,160,0.14)',
-      pillCol: '#10f5a0',
-      pillBd: 'rgba(16,245,160,0.42)',
-      ringStroke: '#b57bff',
+      tone: 'em',
       centerTop: '1.00× BAL',
       centerSub: '25% × 4 Ranks',
       ranks: [
-        { id: 'R0', chunks: '[c0,c7]', name: 'R0 [c0,c7]', pairs: 2097664, pct: 57.1, col: '#10f5a0' },
-        { id: 'R1', chunks: '[c1,c6]', name: 'R1 [c1,c6]', pairs: 2097664, pct: 57.1, col: '#00e5ff' },
-        { id: 'R2', chunks: '[c2,c5]', name: 'R2 [c2,c5]', pairs: 2097664, pct: 57.1, col: '#38bdf8' },
-        { id: 'R3', chunks: '[c3,c4]', name: 'R3 [c3,c4]', pairs: 2097664, pct: 57.1, col: '#b57bff' },
+        { id: 'R0', chunks: '[c0,c7]', name: 'R0 [c0,c7]', pairs: 2097664, pct: 57.1, darkCol: '#10f5a0', lightCol: '#047857' },
+        { id: 'R1', chunks: '[c1,c6]', name: 'R1 [c1,c6]', pairs: 2097664, pct: 57.1, darkCol: '#00e5ff', lightCol: '#0284c7' },
+        { id: 'R2', chunks: '[c2,c5]', name: 'R2 [c2,c5]', pairs: 2097664, pct: 57.1, darkCol: '#38bdf8', lightCol: '#0369a1' },
+        { id: 'R3', chunks: '[c3,c4]', name: 'R3 [c3,c4]', pairs: 2097664, pct: 57.1, darkCol: '#b57bff', lightCol: '#6d28d9' },
       ],
       summary: 'ZigZag Symmetric Split (c_r, c_{2P-1-r}): Exact 1.00× load balance across all 4 ranks (2,097,664 pairs each) · mp.spawn world_size=2 max backward grad err = 8.58e-6.',
     },
@@ -735,92 +1113,115 @@
   const ringBarsEl = document.getElementById('ringBars');
   const ringVisualEl = document.getElementById('ringVisual');
   const ringSumEl = document.getElementById('ringSummary');
+  let activeRingMode = 'zigzag';
 
   function renderRing(mode) {
-    const cfg = RING_MODES[mode] || RING_MODES.zigzag;
-    document.querySelectorAll('[data-ring-mode]').forEach((b) => b.classList.toggle('active', b.dataset.ringMode === mode));
-    ringBarsEl.innerHTML = cfg.ranks.map((r) => `
+    activeRingMode = mode || activeRingMode;
+    const cfg = RING_MODES[activeRingMode] || RING_MODES.zigzag;
+    const light = isLightTheme();
+    document.querySelectorAll('[data-ring-mode]').forEach((b) => b.classList.toggle('active', b.dataset.ringMode === activeRingMode));
+
+    ringBarsEl.innerHTML = cfg.ranks.map((r) => {
+      const col = light ? r.lightCol : r.darkCol;
+      return `
       <div class="ring-row mono">
         <span class="ring-label">${r.name}</span>
-        <div class="ring-track"><div class="ring-fill" style="width:${r.pct}%;background:${r.col}"></div></div>
+        <div class="ring-track"><div class="ring-fill" style="width:${r.pct}%;background:${col}"></div></div>
         <span class="ring-val">${r.pairs.toLocaleString()}</span>
       </div>
-    `).join('');
+    `;
+    }).join('');
 
-    const [r0, r1, r2, r3] = cfg.ranks;
+    const [r0, r1, r2, r3] = cfg.ranks.map((r) => ({ ...r, col: light ? r.lightCol : r.darkCol }));
+    const nodeFill = light ? '#ffffff' : '#0d1729';
+    const chunkInk = light ? '#334155' : '#e2e8f0';
+    const centerFill = light ? (cfg.tone === 'em' ? '#f5f3ff' : '#fff1f2') : '#0c1324';
+    const centerSub = light ? '#475569' : '#94a3b8';
+    const pillStyle = cfg.tone === 'em'
+      ? `background:var(--em-bg);color:var(--em);border:1px solid var(--em-bd)`
+      : `background:var(--rd-bg);color:var(--rd);border:1px solid var(--rd-bd)`;
+    const ringStroke = cfg.tone === 'em'
+      ? (light ? '#6d28d9' : '#b57bff')
+      : (light ? '#be123c' : '#f43f5e');
+    const centerCol = cfg.tone === 'em'
+      ? (light ? '#047857' : '#10f5a0')
+      : (light ? '#be123c' : '#fb7185');
+
     ringVisualEl.innerHTML = `
       <div class="ring-vis-head mono">
         <span>P2P RING TOPOLOGY · batch_isend_irecv (K,V,dK,dV)</span>
-        <span class="ring-vis-pill" style="background:${cfg.pillBg};color:${cfg.pillCol};border:1px solid ${cfg.pillBd}">${cfg.pillTxt}</span>
+        <span class="ring-vis-pill" style="${pillStyle}">${cfg.pillTxt}</span>
       </div>
       <svg viewBox="0 0 460 112" class="ring-vis-svg" role="img" aria-label="4-Rank P2P Ring Topology">
-        <path d="M 78 28 L 382 28 Q 418 28 418 56 Q 418 84 382 84 L 78 84 Q 42 84 42 56 Q 42 28 78 28 Z" fill="none" stroke="${cfg.ringStroke}" stroke-opacity="0.45" stroke-width="2" stroke-dasharray="6 4"/>
-        <rect x="34" y="14" width="112" height="28" rx="6" fill="#0d1729" stroke="${r0.col}" stroke-width="1.3"/>
-        <text x="90" y="32" text-anchor="middle" fill="${r0.col}" font-size="10.5" font-weight="700" font-family="var(--font-mono)">${r0.id} <tspan fill="#e2e8f0" font-weight="500">${r0.chunks}</tspan></text>
-        <rect x="314" y="14" width="112" height="28" rx="6" fill="#0d1729" stroke="${r1.col}" stroke-width="1.3"/>
-        <text x="370" y="32" text-anchor="middle" fill="${r1.col}" font-size="10.5" font-weight="700" font-family="var(--font-mono)">${r1.id} <tspan fill="#e2e8f0" font-weight="500">${r1.chunks}</tspan></text>
-        <rect x="314" y="70" width="112" height="28" rx="6" fill="#0d1729" stroke="${r2.col}" stroke-width="1.3"/>
-        <text x="370" y="88" text-anchor="middle" fill="${r2.col}" font-size="10.5" font-weight="700" font-family="var(--font-mono)">${r2.id} <tspan fill="#e2e8f0" font-weight="500">${r2.chunks}</tspan></text>
-        <rect x="34" y="70" width="112" height="28" rx="6" fill="#0d1729" stroke="${r3.col}" stroke-width="1.3"/>
-        <text x="90" y="88" text-anchor="middle" fill="${r3.col}" font-size="10.5" font-weight="700" font-family="var(--font-mono)">${r3.id} <tspan fill="#e2e8f0" font-weight="500">${r3.chunks}</tspan></text>
-        <rect x="176" y="36" width="108" height="40" rx="7" fill="#0c1324" stroke="${cfg.pillCol}" stroke-opacity="0.55" stroke-width="1.1"/>
-        <text x="230" y="53" text-anchor="middle" fill="${cfg.pillCol}" font-size="10.5" font-weight="700" font-family="var(--font-mono)">${cfg.centerTop}</text>
-        <text x="230" y="67" text-anchor="middle" fill="#94a3b8" font-size="9" font-family="var(--font-mono)">${cfg.centerSub}</text>
+        <path d="M 78 28 L 382 28 Q 418 28 418 56 Q 418 84 382 84 L 78 84 Q 42 84 42 56 Q 42 28 78 28 Z" fill="none" stroke="${ringStroke}" stroke-opacity="0.45" stroke-width="2" stroke-dasharray="6 4"/>
+        <rect x="34" y="14" width="112" height="28" rx="6" fill="${nodeFill}" stroke="${r0.col}" stroke-width="1.3"/>
+        <text x="90" y="32" text-anchor="middle" fill="${r0.col}" font-size="10.5" font-weight="700" font-family="var(--font-mono)">${r0.id} <tspan fill="${chunkInk}" font-weight="500">${r0.chunks}</tspan></text>
+        <rect x="314" y="14" width="112" height="28" rx="6" fill="${nodeFill}" stroke="${r1.col}" stroke-width="1.3"/>
+        <text x="370" y="32" text-anchor="middle" fill="${r1.col}" font-size="10.5" font-weight="700" font-family="var(--font-mono)">${r1.id} <tspan fill="${chunkInk}" font-weight="500">${r1.chunks}</tspan></text>
+        <rect x="314" y="70" width="112" height="28" rx="6" fill="${nodeFill}" stroke="${r2.col}" stroke-width="1.3"/>
+        <text x="370" y="88" text-anchor="middle" fill="${r2.col}" font-size="10.5" font-weight="700" font-family="var(--font-mono)">${r2.id} <tspan fill="${chunkInk}" font-weight="500">${r2.chunks}</tspan></text>
+        <rect x="34" y="70" width="112" height="28" rx="6" fill="${nodeFill}" stroke="${r3.col}" stroke-width="1.3"/>
+        <text x="90" y="88" text-anchor="middle" fill="${r3.col}" font-size="10.5" font-weight="700" font-family="var(--font-mono)">${r3.id} <tspan fill="${chunkInk}" font-weight="500">${r3.chunks}</tspan></text>
+        <rect x="176" y="36" width="108" height="40" rx="7" fill="${centerFill}" stroke="${centerCol}" stroke-opacity="0.6" stroke-width="1.15"/>
+        <text x="230" y="53" text-anchor="middle" fill="${centerCol}" font-size="10.5" font-weight="700" font-family="var(--font-mono)">${cfg.centerTop}</text>
+        <text x="230" y="67" text-anchor="middle" fill="${centerSub}" font-size="9" font-family="var(--font-mono)">${cfg.centerSub}</text>
       </svg>
       <div class="dma-strip mono">
         <div class="dma-row">
           <span>compute_stream</span>
           <div class="dma-blocks">
-            <span class="dma-blk" style="background:rgba(181,123,255,0.18);color:#c4b5fd;border:1px solid rgba(181,123,255,0.38)">FA2 Fwd L_k</span>
-            <span class="dma-blk" style="background:rgba(0,229,255,0.14);color:#67e8f9;border:1px solid rgba(0,229,255,0.35)">152K CE addmm_</span>
-            <span class="dma-blk" style="background:rgba(181,123,255,0.18);color:#c4b5fd;border:1px solid rgba(181,123,255,0.38)">SAC Bwd L_k+1</span>
-            <span class="dma-blk" style="background:rgba(181,123,255,0.18);color:#c4b5fd;border:1px solid rgba(181,123,255,0.38)">SAC Bwd L_k</span>
+            <span class="dma-blk" style="background:var(--vi-bg);color:var(--vi);border:1px solid var(--vi-bd)">FA2 Fwd L_k</span>
+            <span class="dma-blk" style="background:var(--cy-bg);color:var(--cy);border:1px solid var(--cy-bd)">152K CE addmm_</span>
+            <span class="dma-blk" style="background:var(--vi-bg);color:var(--vi);border:1px solid var(--vi-bd)">SAC Bwd L_k+1</span>
+            <span class="dma-blk" style="background:var(--vi-bg);color:var(--vi);border:1px solid var(--vi-bd)">SAC Bwd L_k</span>
           </div>
         </div>
         <div class="dma-row">
           <span>offload_stream</span>
           <div class="dma-blocks">
-            <span class="dma-blk" style="background:rgba(251,191,36,0.15);color:#fcd34d;border:1px solid rgba(251,191,36,0.38)">D2H Pin L_k</span>
-            <span class="dma-blk" style="background:rgba(16,245,160,0.14);color:#6ee7b7;border:1px solid rgba(16,245,160,0.38)">H2D Prefetch</span>
-            <span class="dma-blk" style="background:rgba(16,245,160,0.14);color:#6ee7b7;border:1px solid rgba(16,245,160,0.38)">H2D L_k-1</span>
-            <span class="dma-blk" style="background:rgba(16,245,160,0.20);color:#10f5a0;border:1px solid rgba(16,245,160,0.48)">100% Hidden</span>
+            <span class="dma-blk" style="background:var(--am-bg);color:var(--am);border:1px solid var(--am-bd)">D2H Pin L_k</span>
+            <span class="dma-blk" style="background:var(--em-bg);color:var(--em);border:1px solid var(--em-bd)">H2D Prefetch</span>
+            <span class="dma-blk" style="background:var(--em-bg);color:var(--em);border:1px solid var(--em-bd)">H2D L_k-1</span>
+            <span class="dma-blk" style="background:var(--em-bg);color:var(--em);border:1px solid var(--em-bd)">100% Hidden</span>
           </div>
         </div>
       </div>
     `;
     ringSumEl.textContent = cfg.summary;
   }
+
   document.querySelectorAll('[data-ring-mode]').forEach((b) => b.addEventListener('click', () => renderRing(b.dataset.ringMode)));
+  themeListeners.push(() => renderRing(activeRingMode));
   renderRing('zigzag');
 
   const LADDER_STAGES = [
     {
       id: '1k',
-      title: '1. Standard PyTorch Baseline (SDPA + Full CE + GPU AdamW)',
-      ctx: '1,024 tokens (1.0×)',
+      title: '1. PyTorch Baseline (SDPA + Full CE + GPU AdamW)',
+      ctx: '1,024 tok (1.0×)',
       pct: 6,
       detail: 'Step 2 steady-state ceiling on 7.93 GB GDDR7: resident GPU AdamW moments (~1.88 GB) + materialized [S-1, 151,936] logits trigger OOM at 2,048 tokens.',
     },
     {
       id: '4k',
-      title: '2. Streaming 152K addmm_ Chunked CE + HybridCPUAdamW',
-      ctx: '4,096 tokens (4.0×)',
+      title: '2. 152K addmm_ Chunked CE + HybridCPUAdamW',
+      ctx: '4,096 tok (4.0×)',
       pct: 18,
       detail: 'Eliminates >93% vocabulary logits workspace (872 MB vs ~13.9 GB at M=16K) and moves 5.52 GB FP32 master weights/moments to host RAM via 64 MB pinned staging.',
     },
     {
       id: '24k',
       title: '3. Pure GPU: Zero-Atomic Triton FA2 + Intra-Layer SAC',
-      ctx: '24,576 tokens (24.0×)',
+      ctx: '24,576 tok (24.0×)',
       pct: 75,
       detail: 'Discards >80% wide SwiGLU activations while skipping attention & QKV/O/Down recompute (S=4096: 3813 → 739.3 MB activ, 15.13 TFLOPS > 14.87 TF Full-Ckpt).',
     },
     {
       id: '32k',
-      title: '4. Full Hybrid: + Dual-Stream Pinned DMA Offload/Prefetch',
-      ctx: '32,768 tokens (32.0× · Full Qwen2.5 32K)',
+      title: '4. Full Hybrid: + Dual-Stream Pinned DMA Offload',
+      ctx: '32,768 tok (32.0×)',
       pct: 100,
-      detail: 'AdaptiveHybridMemoryPlanner offloads shallowest layers to slot-safe PinnedActivationPool: B=4, S=2048 672 MB round-trip hides 55.33 ms over 52.47 ms bare PCIe (100% hidden).',
+      detail: 'Full Qwen2.5 32K native window: AdaptiveHybridMemoryPlanner offloads shallowest layers to slot-safe PinnedActivationPool (B=4, S=2048 672 MB round-trip hides 55.33 ms over 52.47 ms bare PCIe).',
     },
   ];
 
@@ -835,10 +1236,26 @@
 
   ladderEl.innerHTML = LADDER_STAGES.map((st, idx) => `
     <button type="button" class="ladder-step ${idx === 3 ? 'active' : ''}" data-lid="${st.id}">
-      <div class="ladder-top mono"><span>${st.title}</span><span class="accent-vi">${st.ctx}</span></div>
+      <div class="ladder-top mono"><span>${st.title}</span><span class="accent-vi ladder-ctx">${st.ctx}</span></div>
       <div class="ladder-bar-wrap"><div class="ladder-bar" style="width:${st.pct}%"></div></div>
     </button>
   `).join('');
   ladderEl.querySelectorAll('.ladder-step').forEach((el) => el.addEventListener('click', () => selectLadder(el.dataset.lid)));
   selectLadder('32k');
+
+  // =========================================================================
+  // 8. BENCHMARK LEDGER DOMAIN FILTER
+  // =========================================================================
+  const ledgerRows = document.querySelectorAll('#ledgerBody tr');
+  document.querySelectorAll('.ledger-filter-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.ledger-filter-btn').forEach((b) => b.classList.remove('active'));
+      btn.classList.add('active');
+      const filt = btn.dataset.ledger;
+      ledgerRows.forEach((tr) => {
+        const match = filt === 'all' || tr.dataset.sys === filt;
+        tr.classList.toggle('hidden-row', !match);
+      });
+    });
+  });
 })();
