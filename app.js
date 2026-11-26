@@ -63,7 +63,8 @@
         document.body.removeChild(ta);
       }
       btn.textContent = copied ? 'Copied ✓' : email;
-      setTimeout(() => { btn.textContent = orig; }, 1800);
+      if (btn._copyTimer) clearTimeout(btn._copyTimer);
+      btn._copyTimer = setTimeout(() => { btn.textContent = orig; }, 1800);
     });
   });
 
@@ -189,6 +190,14 @@
       '  • Zhejiang Uniview Technologies — Embedded C Systems Intern (6 Months)',
     ].join('\n'),
 
+    theme: () => {
+      const next = isLightTheme() ? 'dark' : 'light';
+      applyTheme(next, true);
+      return next === 'light'
+        ? '<span class="t-em">✔ Toggled UI theme → Light Lab (Silicon Blueprint)</span>'
+        : '<span class="t-cy">✔ Toggled UI theme → Obsidian (Hardware Console)</span>';
+    },
+
     'theme light': () => {
       applyTheme('light', true);
       return '<span class="t-em">✔ Switched UI theme → Light Lab (Silicon Blueprint)</span>';
@@ -220,9 +229,10 @@
     cv: 'edu',
   };
 
-  const AUTOCOMPLETE_POOL = Object.keys(COMMANDS);
+  const AUTOCOMPLETE_POOL = [...Object.keys(COMMANDS), 'clear'];
   const cmdHistory = [];
   let histIdx = -1;
+  let tabState = { prefix: '', matches: [], idx: -1 };
 
   function appendBlock(html) {
     const div = document.createElement('div');
@@ -263,6 +273,7 @@
   });
 
   termInput.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') tabState = { prefix: '', matches: [], idx: -1 };
     if (e.key === 'ArrowUp' && cmdHistory.length) {
       e.preventDefault();
       histIdx = Math.max(0, histIdx - 1);
@@ -274,10 +285,17 @@
     } else if (e.key === 'Tab') {
       const val = termInput.value.trim().toLowerCase();
       if (!val) return;
-      const match = AUTOCOMPLETE_POOL.find((c) => c.startsWith(val));
-      if (match) {
+      if (tabState.matches.length && tabState.matches[tabState.idx] === val) {
         e.preventDefault();
-        termInput.value = match;
+        tabState.idx = (tabState.idx + 1) % tabState.matches.length;
+        termInput.value = tabState.matches[tabState.idx];
+        return;
+      }
+      const matches = AUTOCOMPLETE_POOL.filter((c) => c.startsWith(val));
+      if (matches.length) {
+        e.preventDefault();
+        tabState = { prefix: val, matches, idx: 0 };
+        termInput.value = matches[0];
       }
     }
   });
@@ -479,7 +497,8 @@
   let activeDomain = 'all';
   let selectedId = 'rmsnorm_hbm';
 
-  function updateInspector(pt) {
+  function updateInspector(pt, forceRender = false) {
+    const changed = selectedId !== pt.id || !rfSvg.childElementCount;
     selectedId = pt.id;
     const badge = document.getElementById('inspBadge');
     badge.textContent = pt.regime;
@@ -494,7 +513,7 @@
     document.getElementById('inspMech').textContent = pt.mech;
     document.getElementById('inspSourceLink').href = pt.source;
     document.getElementById('inspReportLink').href = pt.report;
-    renderRoofline();
+    if (changed || forceRender) renderRoofline();
   }
 
   function renderRoofline() {
@@ -618,7 +637,7 @@
     parts.push(`<text transform="translate(17, ${py0+ph/2}) rotate(-90)" text-anchor="middle" fill="${pal.axis}" font-size="11" font-weight="600" font-family="var(--font-mono)">Attained Performance (TFLOP/s)</text>`);
     parts.push(`<text x="${px0+pw-6}" y="${yP-12}" text-anchor="end" fill="${pal.vi}" font-size="10.2" font-weight="700" font-family="var(--font-mono)">15.13 TFLOPS Sustained E2E</text>`);
 
-    // Points — verified zero collision with slope annotations & ceiling
+    // Points — verified zero collision with slope annotations, ridge line & ceiling
     const labelOffsets = {
       rmsnorm_hbm:  [-18, -32, 'end', true],
       rmsnorm_fp32: [24, 24, 'start', true],
@@ -627,22 +646,27 @@
       chunked_ce:   [-20, -24, 'end', true],
       paged_attn:   [14, 18, 'start', true],
       serving_hit:  [14, 18, 'start', true],
-      sac_fa2:      [-6, 36, 'middle', true],
+      sac_fa2:      [19, 34, 'middle', true, ['SAC +', 'Triton FA2']],
     };
+
+    const prevFocusedId = document.activeElement?.closest?.('#rooflineSvg .rf-node')?.dataset?.id || null;
 
     visible.forEach((p) => {
       const cx = mx(p.I), cy = my(p.P);
       const isSel = p.id === selectedId;
       const col = light ? p.lightColor : p.darkColor;
-      const [dx, dy, anchor, hasLeader] = labelOffsets[p.id] || [10, -10, 'start', false];
+      const [dx, dy, anchor, hasLeader, multiLines] = labelOffsets[p.id] || [10, -10, 'start', false, null];
       const lx = cx + dx, ly = cy + dy;
       const lineX = anchor === 'end' ? lx + 3 : (anchor === 'start' ? lx - 3 : lx);
       const lineY = dy < 0 ? ly + 3 : ly - 10;
+      const textContent = multiLines
+        ? multiLines.map((ln, idx) => `<tspan x="${lx}" dy="${idx === 0 ? 0 : 12}">${ln}</tspan>`).join('')
+        : p.short;
       parts.push(`<g class="rf-node" data-id="${p.id}" tabindex="0" role="button" aria-label="${p.label}">
         ${hasLeader ? `<line x1="${cx}" y1="${cy}" x2="${lineX}" y2="${lineY}" stroke="${col}" stroke-width="1.1" stroke-opacity="${isSel ? 0.9 : 0.5}"/>` : ''}
         ${isSel ? `<circle cx="${cx}" cy="${cy}" r="13" fill="${col}" fill-opacity="0.18" stroke="${col}" stroke-width="1.4"/>` : ''}
         <circle class="rf-dot" cx="${cx}" cy="${cy}" r="${isSel ? 6.5 : 5.2}" fill="${col}" stroke="${pal.dotRing}" stroke-width="1.8"/>
-        <text x="${lx}" y="${ly}" text-anchor="${anchor}" fill="${isSel ? pal.lblSel : pal.lblIdle}" font-size="${isSel ? 10.6 : 9.6}" font-weight="${isSel ? 700 : 500}" font-family="var(--font-mono)" paint-order="stroke" stroke="${pal.halo}" stroke-width="4" stroke-linejoin="round">${p.short}</text>
+        <text x="${lx}" y="${ly}" text-anchor="${anchor}" fill="${isSel ? pal.lblSel : pal.lblIdle}" font-size="${isSel ? 10.6 : 9.6}" font-weight="${isSel ? 700 : 500}" font-family="var(--font-mono)" paint-order="stroke" stroke="${pal.halo}" stroke-width="4" stroke-linejoin="round">${textContent}</text>
       </g>`);
     });
 
@@ -656,6 +680,10 @@
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); updateInspector(pt); }
       });
     });
+    if (prevFocusedId) {
+      const target = rfSvg.querySelector(`.rf-node[data-id="${prevFocusedId}"]`);
+      target?.focus?.({ preventScroll: true });
+    }
   }
 
   document.querySelectorAll('.filter-btn').forEach((btn) => {
