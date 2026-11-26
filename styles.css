@@ -729,7 +729,7 @@ h2 {
 }
 .trace-canvas {
   position: relative;
-  width: max(100%, 1080px);
+  width: max(100%, 1126px);
 }
 .trace-playhead {
   position: absolute;
@@ -1244,11 +1244,13 @@ h2 {
 }
 .footer-copy-btn:hover { border-color: var(--cy); color: var(--cy); }
 
+@media (max-width: 1195px) {
+  .trace-scroll-hint { display: block; }
+}
 @media (max-width: 960px) {
   .hero, .roofline-grid, .sim-layout { grid-template-columns: 1fr; }
   .serving-metrics-grid, .bg-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .nav-links { display: none; }
-  .trace-scroll-hint { display: block; }
 }
 @media (max-width: 600px) {
   .hero-kpis, .serving-metrics-grid, .bg-cards, .insp-metrics { grid-template-columns: 1fr; }
