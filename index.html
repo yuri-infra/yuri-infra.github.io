@@ -528,32 +528,77 @@
       </div>
     </section>
 
-    <!-- 05: PROFILE, EDUCATION & RESEARCH -->
+    <!-- 05: ENGINEER PROFILE & CORE SYSTEMS STACK -->
     <section id="background" class="section container">
       <div class="section-head">
         <div>
-          <div class="eyebrow mono">// 05 · BACKGROUND_AND_CREDENTIALS</div>
-          <h2>Education &amp; Research</h2>
+          <div class="eyebrow mono">// 05 · ENGINEER_PROFILE</div>
+          <h2>Profile &amp; Technical Stack</h2>
         </div>
       </div>
 
       <div class="bg-cards">
-        <article class="info-card">
-          <div class="mono info-tag accent-cy">EDUCATION</div>
+        <article class="info-card info-card-cy">
+          <div class="mono info-tag accent-cy">EDUCATION &amp; FOCUS</div>
           <h3>Fudan University · M.Eng.</h3>
           <p class="info-meta mono">Electronic Information · 2026 – 2029 · Shanghai, China</p>
           <p class="info-body">
-            Focus on GPU kernel engineering, deep-learning compilers (TorchInductor / Core ATen IR), LLM inference systems, and memory-efficient long-context training.
+            Building low-level GPU kernels, deep-learning compiler passes (TorchInductor / Core ATen IR), high-throughput LLM inference engines, and memory-efficient long-context training systems from scratch.
           </p>
+          <div class="profile-meta-list mono">
+            <div class="profile-meta-item">
+              <span class="meta-dot em"></span>
+              <span><strong>Open for Internships</strong> · Dec 2026+ (3–6 mos, 4–5 d/wk)</span>
+            </div>
+            <div class="profile-meta-item">
+              <span class="meta-dot cy"></span>
+              <span><strong>24/24 GPU Tests Pass</strong> · 5-Run ABA Medians · sm_120</span>
+            </div>
+          </div>
         </article>
 
-        <article class="info-card">
-          <div class="mono info-tag accent-vi">RESEARCH</div>
-          <h3>IEEE/RSJ IROS 2025</h3>
-          <p class="info-meta mono">Sole Corresponding Author &amp; Invited Reviewer · Robotics</p>
-          <p class="info-body">
-            Published peer-reviewed research in robotics at IEEE/RSJ IROS 2025 as Sole Corresponding Author and served as an Invited Reviewer for the conference.
-          </p>
+        <article class="info-card info-card-em">
+          <div class="mono info-tag accent-em">SYSTEMS STACK</div>
+          <h3>Kernels, Compilers &amp; LLM Runtime</h3>
+          <p class="info-meta mono">RTX 5060 Blackwell (sm_120) · CUDA 13.0 · PyTorch 2.13 · Triton 3.7.1</p>
+          <div class="stack-matrix">
+            <div class="stack-row">
+              <span class="stack-key mono">Kernels</span>
+              <div class="stack-pills mono">
+                <span class="stack-pill">CUDA C++ (.cu)</span>
+                <span class="stack-pill">PTX / uint4</span>
+                <span class="stack-pill">Warp Shuffle</span>
+                <span class="stack-pill">OpenAI Triton</span>
+              </div>
+            </div>
+            <div class="stack-row">
+              <span class="stack-key mono">Compiler</span>
+              <div class="stack-pills mono">
+                <span class="stack-pill">TorchInductor</span>
+                <span class="stack-pill">Core ATen IR</span>
+                <span class="stack-pill">post_grad Pass</span>
+                <span class="stack-pill">TORCH_LIBRARY</span>
+              </div>
+            </div>
+            <div class="stack-row">
+              <span class="stack-key mono">Serving</span>
+              <div class="stack-pills mono">
+                <span class="stack-pill">GQA PagedAttn</span>
+                <span class="stack-pill">Radix-Tree</span>
+                <span class="stack-pill">Chunked Prefill</span>
+                <span class="stack-pill">Async SSE</span>
+              </div>
+            </div>
+            <div class="stack-row">
+              <span class="stack-key mono">Training</span>
+              <div class="stack-pills mono">
+                <span class="stack-pill">Zero-Atomic FA2</span>
+                <span class="stack-pill">ZigZag Ring</span>
+                <span class="stack-pill">Intra-Layer SAC</span>
+                <span class="stack-pill">Pinned DMA</span>
+              </div>
+            </div>
+          </div>
         </article>
       </div>
     </section>

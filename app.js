@@ -87,7 +87,7 @@
       '  <span class="t-em">bench --all</span>       — 5-run ABA median highlights across all 3 engines',
       '  <span class="t-em">ls projects</span>       — List the 3 pinned AI Infra repositories',
       '  <span class="t-em">cat project{1..3}</span> — Architecture summary for each repository',
-      '  <span class="t-em">edu</span>               — Education &amp; IEEE/RSJ IROS 2025 publication',
+      '  <span class="t-em">profile</span>           — Fudan M.Eng. profile &amp; AI Infra stack',
       '  <span class="t-em">theme light|dark</span>  — Live-switch UI theme (Light Lab / Obsidian)',
       '  <span class="t-em">contact</span>           — Email, location &amp; internship availability',
       '  <span class="t-em">clear</span>             — Clear terminal viewport',
@@ -101,7 +101,7 @@
       '<span class="t-cy">GPU</span>      : RTX 5060 Laptop (sm_120 · 26 SMs · 7.93 GB GDDR7)',
       '<span class="t-cy">Roof</span>     : <span class="t-em">312.6 GB/s</span> measured 256MB D2D (81.4% of 384 GB/s)',
       '<span class="t-cy">Stack</span>    : CUDA C++ (.cu) · Triton 3.7.1 · PyTorch 2.13 Inductor',
-      '<span class="t-cy">Research</span> : IEEE/RSJ IROS 2025 (Sole Corr. Author &amp; Reviewer)',
+      '<span class="t-cy">Systems</span>  : GQA PagedAttn · Radix-Tree · Zero-Atomic FA2 · RingAttn',
       '<span class="t-cy">Tests</span>    : <span class="t-em">24/24 PASS</span> (8/8 Kernels · 8/8 Serving · 8/8 32K Train)',
     ].join('\n'),
 
@@ -178,11 +178,12 @@
       '       SAC (15.13 TFLOPS), in-place addmm_ 152K CE, dual-stream pinned DMA &amp; HybridCPUAdamW.',
     ].join('\n'),
 
-    edu: () => [
+    profile: () => [
       '<span class="t-cy">[Education]</span>',
       '  • M.Eng. Electronic Information · Fudan University (2026 – 2029, Shanghai)',
-      '<span class="t-vi">[Publication &amp; Service]</span>',
-      '  • IEEE/RSJ IROS 2025 (Robotics) — Sole Corresponding Author &amp; Invited Reviewer',
+      '<span class="t-em">[AI Infra Focus]</span>',
+      '  • CUDA C++ (.cu) &amp; Triton Kernels · TorchInductor / Core ATen IR Passes',
+      '  • GQA PagedAttention Serving · Single-8GB 32K Long-Context Training',
     ].join('\n'),
 
     theme: () => {
@@ -220,8 +221,9 @@
     bench: 'bench --all',
     ls: 'ls projects',
     projects: 'ls projects',
-    resume: 'edu',
-    cv: 'edu',
+    edu: 'profile',
+    resume: 'profile',
+    cv: 'profile',
   };
 
   const AUTOCOMPLETE_POOL = [...Object.keys(COMMANDS), 'clear'];
@@ -1342,4 +1344,30 @@
       });
     });
   });
+
+  // =========================================================================
+  // 9. STICKY NAVIGATION SCROLL SPY
+  // =========================================================================
+  const navLinks = Array.from(document.querySelectorAll('.nav-links a[href^="#"]'));
+  const navTargets = navLinks
+    .map((a) => ({ link: a, el: document.querySelector(a.getAttribute('href')) }))
+    .filter((item) => item.el);
+
+  if (navTargets.length && 'IntersectionObserver' in window) {
+    const setActiveNav = (id) => {
+      navTargets.forEach(({ link, el }) => {
+        link.classList.toggle('active', el.id === id);
+      });
+    };
+    const spy = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (visible.length) setActiveNav(visible[0].target.id);
+      },
+      { rootMargin: '-18% 0px -62% 0px', threshold: [0.1, 0.35, 0.6] }
+    );
+    navTargets.forEach(({ el }) => spy.observe(el));
+  }
 })();
