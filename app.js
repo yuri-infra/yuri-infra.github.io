@@ -87,7 +87,7 @@
       '  <span class="t-em">bench --all</span>       — 5-run ABA median highlights across all 3 engines',
       '  <span class="t-em">ls projects</span>       — List the 3 pinned AI Infra repositories',
       '  <span class="t-em">cat project{1..3}</span> — Architecture summary for each repository',
-      '  <span class="t-em">edu</span>               — Education, IROS 2025 publication &amp; Uniview internship',
+      '  <span class="t-em">edu</span>               — Education &amp; IEEE/RSJ IROS 2025 publication',
       '  <span class="t-em">theme light|dark</span>  — Live-switch UI theme (Light Lab / Obsidian)',
       '  <span class="t-em">contact</span>           — Email, location &amp; internship availability',
       '  <span class="t-em">clear</span>             — Clear terminal viewport',
@@ -98,12 +98,10 @@
       '<span class="t-dim">──────────────────────────────────────────────</span>',
       '<span class="t-cy">Name</span>     : Hongwei Zhu (朱鸿伟)',
       '<span class="t-cy">M.Eng.</span>   : Fudan University · Elec. Info (2026–2029)',
-      '<span class="t-cy">B.Eng.</span>   : Tiangong University · Rank 1/59 (GPA 3.92)',
       '<span class="t-cy">GPU</span>      : RTX 5060 Laptop (sm_120 · 26 SMs · 7.93 GB GDDR7)',
       '<span class="t-cy">Roof</span>     : <span class="t-em">312.6 GB/s</span> measured 256MB D2D (81.4% of 384 GB/s)',
       '<span class="t-cy">Stack</span>    : CUDA C++ (.cu) · Triton 3.7.1 · PyTorch 2.13 Inductor',
       '<span class="t-cy">Research</span> : IEEE/RSJ IROS 2025 (Sole Corr. Author &amp; Reviewer)',
-      '<span class="t-cy">Industry</span> : Zhejiang Uniview · Embedded C Intern (6 mos)',
       '<span class="t-cy">Tests</span>    : <span class="t-em">24/24 PASS</span> (8/8 Kernels · 8/8 Serving · 8/8 32K Train)',
     ].join('\n'),
 
@@ -183,11 +181,8 @@
     edu: () => [
       '<span class="t-cy">[Education]</span>',
       '  • M.Eng. Electronic Information · Fudan University (2026 – 2029, Shanghai)',
-      '  • B.Eng. · Tiangong University · Rank 1 / 59 (GPA 3.92)',
       '<span class="t-vi">[Publication &amp; Service]</span>',
       '  • IEEE/RSJ IROS 2025 (Robotics) — Sole Corresponding Author &amp; Invited Reviewer',
-      '<span class="t-em">[Industry]</span>',
-      '  • Zhejiang Uniview Technologies — Embedded C Systems Intern (6 Months)',
     ].join('\n'),
 
     theme: () => {
